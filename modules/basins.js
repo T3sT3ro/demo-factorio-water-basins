@@ -1,44 +1,8 @@
 // Basin computation and management
 
 import { CONFIG } from "./config.js";
-import { UI_CONSTANTS } from "./constants.js";
+import { DepthPriorityQueue } from "./DepthPriorityQueue.js";
 import { generateLetterSequence } from "./utils.js";
-
-// Bucket-based priority queue for depth-ordered processing
-class DepthPriorityQueue {
-  constructor() {
-    this.buckets = new Map();
-    this.maxDepth = -1;
-  }
-
-  push(item) {
-    const depth = item.depth;
-    if (!this.buckets.has(depth)) {
-      this.buckets.set(depth, []);
-    }
-    this.buckets.get(depth).push(item);
-    this.maxDepth = Math.max(this.maxDepth, depth);
-  }
-
-  pop() {
-    while (this.maxDepth >= 0) {
-      const bucket = this.buckets.get(this.maxDepth);
-      if (bucket && bucket.length > 0) {
-        return bucket.pop();
-      }
-      this.maxDepth--;
-    }
-    return undefined;
-  }
-
-  get length() {
-    let total = 0;
-    for (const bucket of this.buckets.values()) {
-      total += bucket.length;
-    }
-    return total;
-  }
-}
 
 export class BasinManager {
   constructor() {
@@ -49,24 +13,9 @@ export class BasinManager {
     }
     this.nextBasinId = 1;
     this.highlightedBasin = null;
-    
+
     // Optimization state
     this.lastHeights = null;
-    
-    // Debug state and generator
-    this.basinGenerator = null;
-    this.debugState = {
-      enabled: false,
-      stepByStep: false,
-      stage: UI_CONSTANTS?.DEBUG?.STAGES?.UNINITIALIZED || 'uninitialized',
-      currentStep: 0,
-      visitedTiles: new Set(),
-      queueTiles: new Set(),
-      currentTile: null,
-      currentBasinTiles: new Set(),
-      currentBasinId: null,
-      onStepCallback: null,
-    };
   }
 
   // Get all tiles that belong to a specific basin
@@ -96,9 +45,9 @@ export class BasinManager {
     }
   }
 
-  computeBasins(heights, options = {}) {
-    const { stepByStep = this.debugState.stepByStep } = options;
-    
+    computeBasins(heights, _options = {}) {
+    console.log('BasinManager.computeBasins called');
+
     performance.mark("basin-computation-start");
 
     // Check if we can skip computation
@@ -114,22 +63,21 @@ export class BasinManager {
     this.basins.clear();
     this.nextBasinId = 1;
 
-    if (stepByStep) {
-      // Run as generator for step-by-step debugging
-      this.basinGenerator = this.computeBasinsGenerator(heights);
-      const firstStep = this.basinGenerator.next();
-      if (firstStep.done) this.basinGenerator = null;
-    } else {
-      // Run synchronously
-      this.runBasinComputation(heights);
-    }
+    // Convert changed tiles to the format expected by generateBasins
+    const toRevalidate = Array.from(changedTiles).map(tileKey => {
+      const [x, y] = tileKey.split(',').map(Number);
+      return [y, x]; // [row, column] format
+    });
+
+    // Run synchronously
+    this.runBasinComputation(heights, toRevalidate);
 
     // Store current heights for next comparison
     this.lastHeights = heights.map(row => [...row]);
 
     performance.mark("basin-computation-end");
     performance.measure("Total Basin Computation", "basin-computation-start", "basin-computation-end");
-    
+
     // Log performance info
     const measures = performance.getEntriesByType("measure");
     const lastMeasure = measures[measures.length - 1];
@@ -140,7 +88,7 @@ export class BasinManager {
 
   detectChangedTiles(heights) {
     const changed = new Set();
-    
+
     if (!this.lastHeights) {
       // First run - everything is "changed"
       for (let y = 0; y < CONFIG.WORLD_H; y++) {
@@ -165,203 +113,9 @@ export class BasinManager {
     return changed;
   }
 
-  *computeBasinsGenerator(heights) {
-    this.resetDebugState();
-    this.debugState.stage = UI_CONSTANTS.DEBUG.STAGES.INITIALIZING;
-    
-    if (this.debugState.onStepCallback) {
-      this.debugState.onStepCallback(this.getDebugState());
-    }
-    yield { type: UI_CONSTANTS.DEBUG.YIELD_TYPES.STAGE, data: UI_CONSTANTS.DEBUG.STAGES.INITIALIZING };
-
-    // Build priority queue
-    const queue = this.buildPriorityQueue(heights);
-    this.debugState.stage = UI_CONSTANTS.DEBUG.STAGES.PROCESSING_TILES;
-    
-    if (this.debugState.onStepCallback) {
-      this.debugState.onStepCallback(this.getDebugState());
-    }
-    yield { type: UI_CONSTANTS.DEBUG.YIELD_TYPES.STAGE, data: UI_CONSTANTS.DEBUG.STAGES.PROCESSING_TILES };
-
-    // Process tiles and build basins
-    const visited = new Set();
-    const basinNodes = new Map(); // basinId -> { basin, parent }
-
-    while (queue.length > 0) {
-      const { x, y, depth } = queue.pop();
-      const tileKey = `${x},${y}`;
-      
-      if (visited.has(tileKey)) continue;
-
-      // Build basin from this starting point
-      yield* this.buildBasinGenerator(x, y, depth, heights, visited, basinNodes);
-    }
-
-    // Finalize basins
-    this.debugState.stage = UI_CONSTANTS.DEBUG.STAGES.FINALIZING;
-    if (this.debugState.onStepCallback) {
-      this.debugState.onStepCallback(this.getDebugState());
-    }
-    yield { type: UI_CONSTANTS.DEBUG.YIELD_TYPES.STAGE, data: UI_CONSTANTS.DEBUG.STAGES.FINALIZING };
-
-    this.finalizeBasins(basinNodes);
-
-    this.debugState.stage = UI_CONSTANTS.DEBUG.STAGES.COMPLETED;
-    if (this.debugState.onStepCallback) {
-      this.debugState.onStepCallback(this.getDebugState());
-    }
-    yield { type: UI_CONSTANTS.DEBUG.YIELD_TYPES.STAGE, data: UI_CONSTANTS.DEBUG.STAGES.COMPLETED };
-  }
-
-  runBasinComputation(heights) {
-    // Synchronous version - no yields
-    const queue = this.buildPriorityQueue(heights);
-    const visited = new Set();
-    const basinNodes = new Map();
-
-    while (queue.length > 0) {
-      const { x, y, depth } = queue.pop();
-      const tileKey = `${x},${y}`;
-      
-      if (visited.has(tileKey)) continue;
-      this.buildBasin(x, y, depth, heights, visited, basinNodes);
-    }
-
-    this.finalizeBasins(basinNodes);
-  }
-
-  buildPriorityQueue(heights) {
-    const queue = new DepthPriorityQueue();
-    
-    for (let y = 0; y < CONFIG.WORLD_H; y++) {
-      for (let x = 0; x < CONFIG.WORLD_W; x++) {
-        const depth = heights[y][x];
-        if (depth > 0) {
-          queue.push({ x, y, depth });
-        }
-      }
-    }
-
-    // Update debug visualization
-    if (this.debugState.enabled) {
-      this.updateDebugQueueVisualization(queue);
-    }
-
-    return queue;
-  }
-
-  buildBasin(startX, startY, depth, heights, visited, basinNodes) {
-    const basinId = this.nextBasinId++;
-    const tiles = new Set();
-    const queue = [[startX, startY]];
-    const tileKey = `${startX},${startY}`;
-    
-    if (visited.has(tileKey)) return;
-    
-    visited.add(tileKey);
-    tiles.add(tileKey);
-    this.basinIdOf[startY][startX] = basinId;
-
-    while (queue.length > 0) {
-      const [x, y] = queue.shift();
-      
-      for (const [dx, dy] of CONFIG.BASIN_COMPUTATION.DIRECTIONS.ALL) {
-        const nx = x + dx;
-        const ny = y + dy;
-        const neighborKey = `${nx},${ny}`;
-        
-        if (!this.isValidTile(nx, ny) || visited.has(neighborKey)) continue;
-        if (heights[ny][nx] !== depth) continue;
-        if (!this.isDiagonalValid(x, y, nx, ny, heights)) continue;
-        
-        visited.add(neighborKey);
-        tiles.add(neighborKey);
-        this.basinIdOf[ny][nx] = basinId;
-        queue.push([nx, ny]);
-      }
-    }
-
-    // Create basin
-    const basin = this.createBasin(tiles, depth);
-    this.basins.set(basinId, basin);
-    
-    // Store in nodes structure for parent-child relationships
-    basinNodes.set(basinId, { basin, parent: null });
-  }
-
-  *buildBasinGenerator(startX, startY, depth, heights, visited, basinNodes) {
-    const basinId = this.nextBasinId++;
-    const tiles = new Set();
-    const queue = [[startX, startY]];
-    const tileKey = `${startX},${startY}`;
-    
-    if (visited.has(tileKey)) return;
-    
-    // Initialize debug state
-    this.debugState.currentBasinId = basinId;
-    this.debugState.currentBasinTiles.clear();
-    this.debugState.visitedTiles.add(tileKey);
-    this.debugState.currentBasinTiles.add(tileKey);
-    
-    visited.add(tileKey);
-    tiles.add(tileKey);
-    this.basinIdOf[startY][startX] = basinId;
-
-    if (this.debugState.onStepCallback) {
-      this.debugState.onStepCallback(this.getDebugState());
-    }
-    yield { 
-      type: UI_CONSTANTS.DEBUG.YIELD_TYPES.BASIN_START, 
-      data: { basinId, startX, startY, depth, currentTile: tileKey } 
-    };
-
-    while (queue.length > 0) {
-      const [x, y] = queue.shift();
-      this.debugState.currentTile = `${x},${y}`;
-      this.debugState.currentStep++;
-      
-      for (const [dx, dy] of CONFIG.BASIN_COMPUTATION.DIRECTIONS.ALL) {
-        const nx = x + dx;
-        const ny = y + dy;
-        const neighborKey = `${nx},${ny}`;
-        
-        if (!this.isValidTile(nx, ny) || visited.has(neighborKey)) continue;
-        if (heights[ny][nx] !== depth) continue;
-        if (!this.isDiagonalValid(x, y, nx, ny, heights)) continue;
-        
-        visited.add(neighborKey);
-        tiles.add(neighborKey);
-        this.basinIdOf[ny][nx] = basinId;
-        queue.push([nx, ny]);
-
-        this.debugState.visitedTiles.add(neighborKey);
-        this.debugState.currentBasinTiles.add(neighborKey);
-      }
-
-      // Yield after processing each tile
-      if (this.debugState.onStepCallback) {
-        this.debugState.onStepCallback(this.getDebugState());
-      }
-      yield { 
-        type: UI_CONSTANTS.DEBUG.YIELD_TYPES.TILE_PROCESSED, 
-        data: { 
-          basinId, 
-          currentTile: `${x},${y}`, 
-          queueSize: queue.length, 
-          basinSize: tiles.size 
-        } 
-      };
-    }
-
-    // Create basin
-    const basin = this.createBasin(tiles, depth);
-    this.basins.set(basinId, basin);
-    basinNodes.set(basinId, { basin, parent: null });
-
-    yield { 
-      type: UI_CONSTANTS.DEBUG.YIELD_TYPES.BASIN_COMPLETED, 
-      data: { basinId, tiles: tiles.size } 
-    };
+  runBasinComputation(heights, toRevalidate) {
+    // Synchronous version - call the function directly
+    this.generateBasins(heights, toRevalidate, "automatic");
   }
 
   // Helper methods
@@ -384,7 +138,7 @@ export class BasinManager {
     // Convert numeric IDs to depth#letter format and establish parent relationships
     const basinIdMap = new Map();
     const depthGroups = new Map();
-    
+
     // Group basins by depth
     for (const [oldId, { basin }] of basinNodes) {
       const depth = basin.height;
@@ -393,24 +147,24 @@ export class BasinManager {
       }
       depthGroups.get(depth).push({ oldId, basin });
     }
-    
+
     // Assign new IDs and find outlets/parents
     const sortedDepths = Array.from(depthGroups.keys()).sort((a, b) => a - b);
-    
+
     for (const depth of sortedDepths) {
       const basinsAtDepth = depthGroups.get(depth);
       let letterIndex = 0;
-      
+
       for (const { oldId, basin } of basinsAtDepth) {
         const letters = generateLetterSequence(letterIndex++);
         const newBasinId = `${depth}#${letters}`;
-        
+
         basinIdMap.set(oldId, newBasinId);
-        
+
         // Update basin in main map
         this.basins.delete(oldId);
         this.basins.set(newBasinId, basin);
-        
+
         // Update basinIdOf array - find all tiles that belong to this basin
         for (let y = 0; y < CONFIG.WORLD_H; y++) {
           for (let x = 0; x < CONFIG.WORLD_W; x++) {
@@ -419,12 +173,12 @@ export class BasinManager {
             }
           }
         }
-        
+
         // Find outlets (connections to shallower basins)
         this.findBasinOutlets(newBasinId, basin);
       }
     }
-    
+
     // Update outlet references to use new IDs
     for (const basin of this.basins.values()) {
       basin.outlets = basin.outlets
@@ -435,27 +189,27 @@ export class BasinManager {
 
   findBasinOutlets(basinId, basin) {
     const outlets = new Set();
-    
+
     const basinTiles = this.getBasinTiles(basinId);
     for (const tileKey of basinTiles) {
       const [tx, ty] = tileKey.split(',').map(Number);
-      
+
       for (const [dx, dy] of CONFIG.BASIN_COMPUTATION.DIRECTIONS.ALL) {
         const nx = tx + dx;
         const ny = ty + dy;
-        
+
         if (!this.isValidTile(nx, ny)) continue;
-        
+
         const neighborBasinId = this.basinIdOf[ny][nx];
         if (!neighborBasinId) continue;
-        
+
         const neighborBasin = this.basins.get(neighborBasinId);
         if (neighborBasin && neighborBasin.height < basin.height) {
           outlets.add(neighborBasinId);
         }
       }
     }
-    
+
     basin.outlets = Array.from(outlets);
   }
 
@@ -479,85 +233,6 @@ export class BasinManager {
     }
 
     return true;
-  }
-
-  updateDebugQueueVisualization(queue) {
-    this.debugState.queueTiles.clear();
-    // Get current items in queue (limited for visualization)
-    const items = [];
-    const tempQueue = [];
-    let count = 0;
-    while (queue.length > 0 && count < UI_CONSTANTS.DEBUG.MAX_QUEUE_VISUALIZATION) {
-      const item = queue.pop();
-      items.push(item);
-      tempQueue.push(item);
-      count++;
-    }
-    // Restore queue
-    tempQueue.forEach(item => queue.push(item));
-    
-    // Add to visualization
-    items.forEach(({ x, y }) => {
-      this.debugState.queueTiles.add(`${x},${y}`);
-    });
-  }
-
-  // Debug control methods
-  enableStepByStepDebug(enabled, onStepCallback = null) {
-    this.debugState.enabled = enabled;
-    this.debugState.stepByStep = enabled;
-    this.debugState.onStepCallback = onStepCallback;
-    this.resetDebugState();
-  }
-
-  resetDebugState() {
-    this.debugState.currentStep = 0;
-    this.debugState.visitedTiles.clear();
-    this.debugState.queueTiles.clear();
-    this.debugState.currentTile = null;
-    this.debugState.currentBasinTiles.clear();
-    this.debugState.currentBasinId = null;
-    this.debugState.stage = UI_CONSTANTS.DEBUG.STAGES.UNINITIALIZED;
-    this.basinGenerator = null;
-  }
-
-  stepDebug() {
-    if (!this.debugState.stepByStep) return false;
-    
-    // If we have an active generator, continue with it
-    if (this.basinGenerator) {
-      const result = this.basinGenerator.next();
-      
-      if (result.done) {
-        // Generator is complete, clean up
-        this.basinGenerator = null;
-        return false;
-      }
-      
-      // Generator yielded some debug data
-      return true;
-    }
-    
-    return false;
-  }
-
-  getDebugState() {
-    return {
-      enabled: this.debugState.enabled,
-      stepByStep: this.debugState.stepByStep,
-      stage: this.debugState.stage,
-      currentStep: this.debugState.currentStep,
-      visitedTiles: this.debugState.visitedTiles,
-      queueTiles: this.debugState.queueTiles,
-      currentTile: this.debugState.currentTile,
-      currentBasinTiles: this.debugState.currentBasinTiles,
-      currentBasinId: this.debugState.currentBasinId,
-      queueSize: this.debugState.queueTiles.size,
-      visitedSize: this.debugState.visitedTiles.size,
-      bucketsUsed: 0,
-      currentDepth: this.debugState.currentTile ? 
-        this.debugState.heights?.[this.debugState.currentTile.split(',')[1]]?.[this.debugState.currentTile.split(',')[0]] || -1 : -1,
-    };
   }
 
   // Basin management methods (rest of the API)
@@ -640,7 +315,7 @@ export class BasinManager {
     return this.highlightedBasin;
   }
 
-  getDebugInfo(heights) {
+  getBasinAnalysis(heights) {
     const connections = new Map();
     const basinArray = Array.from(this.basins.entries()).sort((a, b) => {
       const [levelA, lettersA] = a[0].split("#");
@@ -652,7 +327,7 @@ export class BasinManager {
     // Build connection graph
     basinArray.forEach(([id]) => {
       connections.set(id, new Set());
-      
+
       // Iterate through all tiles to find those belonging to this basin
       for (let y = 0; y < CONFIG.WORLD_H; y++) {
         for (let x = 0; x < CONFIG.WORLD_W; x++) {
@@ -702,4 +377,233 @@ export class BasinManager {
       connections,
     };
   }
+
+    /**
+   * Revalidates basins around changed tiles using tree-based BFS.
+   * 
+   * Algorithm:
+   * - Uses a virtual root basin at depth 0
+   * - Basin tree cursor moves up/down as we cross depth boundaries  
+   * - Creates child basins on demand when descending
+   * - Updates parent sizes when ascending
+   * - Queue items carry basin node references
+   * - Basin IDs assigned in post-processing
+   * 
+   * @param {number[][]} heights
+   * @param {[[row: number, column: number]]} toRevalidate
+  /**
+   * Generate letter sequence for basin IDs (A, B, C, ..., Z, AA, AB, ...)
+   * @param {number} index - Zero-based index
+   * @returns {string} Letter sequence
+   */
+  generateLetter(index) {
+    let result = '';
+    let num = index;
+    do {
+      result = String.fromCharCode(65 + (num % 26)) + result;
+      num = Math.floor(num / 26);
+    } while (num > 0);
+    return result;
+  }
+  generateBasins(heights, toRevalidate, _mode = "automatic") {
+    /** @type {Set<string>} */
+    const dirtyBasins = new Set();
+    const bucketsQueue = new DepthPriorityQueue();
+    /** @type {Set<string>} */
+    const visited = new Set();
+    
+    // Basin forest structure: Map<depth, Map<basinId, BasinNode>>
+    const basinForest = new Map();
+    const basinNodes = new Map(); // basinId -> { basin, parent }
+    
+    // Create virtual root basin at depth 0
+    basinForest.set(0, new Map([["root", { size: 0, depth: 0, parent: null, tiles: new Set() }]]));
+    
+    // Add initial boundary tiles to queue
+    for (const [row, column] of toRevalidate) {
+      const tileKey = `${column},${row}`;
+      if (visited.has(tileKey)) continue;
+      
+      const depth = heights[row][column];
+      if (depth > 0) { // Only process water tiles
+        bucketsQueue.push({ x: column, y: row, depth, tileKey });
+        visited.add(tileKey);
+        
+        // Collect any existing basin IDs for dirty tracking
+        const existingBasinId = this.basinIdOf[row][column];
+        if (existingBasinId) {
+          dirtyBasins.add(existingBasinId);
+        }
+      }
+    }
+    
+    // Current basin tracking
+    let currentBasinId = this.nextBasinId;
+    
+    // Process tiles in depth-priority order
+    // Track processed tiles to avoid processing same tile in multiple connected components
+    const processedTiles = new Set();
+    
+    while (bucketsQueue.length > 0) {
+      const tile = bucketsQueue.pop();
+      if (!tile) break;
+      
+      const { x, y, depth, tileKey } = tile;
+      
+      // Skip if already processed by a connected component
+      if (processedTiles.has(tileKey)) continue;
+      
+      // Start a new connected component (basin) at this depth
+      currentBasinId = this.nextBasinId++;
+      
+      // Flood-fill this connected component at this specific depth
+      const componentTiles = this.floodFillComponent(x, y, depth, heights, processedTiles);
+      
+      // Create the actual basin object
+      const basin = this.createBasin(componentTiles, depth);
+      
+      // Find parent basin for this connected component
+      const parentBasin = this.findParentBasinForComponent(basinForest, depth, componentTiles, heights);
+      basinNodes.set(currentBasinId, { basin, parent: parentBasin });
+      
+      // Store in basins map
+      this.basins.set(currentBasinId, basin);
+      
+      // Assign tiles to basin ID
+      for (const componentTile of componentTiles) {
+        const [tx, ty] = componentTile.split(',').map(Number);
+        this.basinIdOf[ty][tx] = currentBasinId;
+      }
+      
+      // Add to basin forest structure (for parent/child relationships)
+      if (!basinForest.has(depth)) {
+        basinForest.set(depth, new Map());
+      }
+      basinForest.get(depth).set(currentBasinId.toString(), {
+        id: currentBasinId,
+        basin,
+        tiles: componentTiles,
+        depth,
+        parent: parentBasin
+      });
+      
+      // Add neighboring tiles at different depths to the main queue
+      for (const componentTile of componentTiles) {
+        const [tx, ty] = componentTile.split(',').map(Number);
+        this.addNeighborsToMainQueue(tx, ty, heights, visited, bucketsQueue);
+      }
+    }
+    
+    // Finalize all basins
+    this.finalizeBasins(basinNodes);
+    
+    return { basinForest, dirtyBasins };
+  }
+
+  /**
+   * Flood-fill a connected component of tiles at the same depth
+   * @param {number} startX 
+   * @param {number} startY 
+   * @param {number} depth 
+   * @param {number[][]} heights 
+   * @param {Set<string>} processedTiles 
+   * @returns {string[]} Array of tile keys
+   */
+  floodFillComponent(startX, startY, depth, heights, processedTiles) {
+    const componentTiles = [];
+    const componentQueue = [[startX, startY]];
+    const componentVisited = new Set();
+    const startTileKey = `${startX},${startY}`;
+    
+    componentVisited.add(startTileKey);
+    componentTiles.push(startTileKey);
+    processedTiles.add(startTileKey);
+    
+    while (componentQueue.length > 0) {
+      const [x, y] = componentQueue.shift();
+      
+      // Check all orthogonal neighbors at the same depth
+      for (const [dx, dy] of CONFIG.BASIN_COMPUTATION.DIRECTIONS.ORTHOGONAL) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const neighborKey = `${nx},${ny}`;
+        
+        if (this.isValidTile(nx, ny) && !componentVisited.has(neighborKey)) {
+          const neighborDepth = heights[ny][nx];
+          
+          // Only include tiles at exactly the same depth
+          if (neighborDepth === depth) {
+            componentVisited.add(neighborKey);
+            componentTiles.push(neighborKey);
+            componentQueue.push([nx, ny]);
+            processedTiles.add(neighborKey);
+          }
+        }
+      }
+    }
+    
+    return componentTiles;
+  }
+
+  /**
+   * Add neighboring tiles at different depths to the main processing queue
+   * @param {number} x 
+   * @param {number} y 
+   * @param {number[][]} heights 
+   * @param {Set<string>} visited 
+   * @param {DepthPriorityQueue} bucketsQueue 
+   */
+  addNeighborsToMainQueue(x, y, heights, visited, bucketsQueue) {
+    for (const [dx, dy] of CONFIG.BASIN_COMPUTATION.DIRECTIONS.ORTHOGONAL) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const neighborKey = `${nx},${ny}`;
+      
+      if (this.isValidTile(nx, ny) && !visited.has(neighborKey)) {
+        const neighborDepth = heights[ny][nx];
+        
+        if (neighborDepth > 0) {
+          bucketsQueue.push({ x: nx, y: ny, depth: neighborDepth, tileKey: neighborKey });
+          visited.add(neighborKey);
+        }
+      }
+    }
+  }
+
+  /**
+   * Find the parent basin for a connected component at given depth
+   * @param {Map} basinForest 
+   * @param {number} depth 
+   * @param {string[]} componentTiles 
+   * @param {number[][]} heights 
+   * @returns {Object|null} Parent basin or null
+   */
+  findParentBasinForComponent(basinForest, depth, componentTiles, _heights) {
+    if (depth <= 1) return null; // No parent for depth 1 basins
+    
+    // Look for basins at depth - 1 that are adjacent to this component
+    const parentDepthBasins = basinForest.get(depth - 1);
+    if (!parentDepthBasins) return null;
+    
+    for (const [_parentBasinId, parentBasin] of parentDepthBasins) {
+      // Check if any tile in this component is adjacent to any tile in the parent basin
+      for (const tile of componentTiles) {
+        const [x, y] = tile.split(',').map(Number);
+        
+        for (const [dx, dy] of CONFIG.BASIN_COMPUTATION.DIRECTIONS.ORTHOGONAL) {
+          const nx = x + dx;
+          const ny = y + dy;
+          const neighborKey = `${nx},${ny}`;
+          
+          if (parentBasin.tiles && parentBasin.tiles.includes(neighborKey)) {
+            return parentBasin;
+          }
+        }
+      }
+    }
+    
+    return null; // No adjacent parent found
+  }
 }
+
+/** @typedef {{size: number, depth: number, parent: any}} BasinNode */

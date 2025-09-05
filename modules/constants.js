@@ -31,26 +31,6 @@ export const UI_CONSTANTS = {
     },
   },
 
-  // Basin computation debug constants
-  DEBUG: {
-    STAGES: {
-      UNINITIALIZED: 'uninitialized',
-      INITIALIZING: 'initializing',
-      BUILDING_QUEUE: 'building_queue',
-      PROCESSING_TILES: 'processing_tiles',
-      FINALIZING: 'finalizing',
-      COMPLETED: 'completed'
-    },
-    YIELD_TYPES: {
-      STAGE: 'stage',
-      BASIN_START: 'basin_start',
-      TILE_PROCESSED: 'tile_processed',
-      BASIN_COMPLETED: 'basin_completed'
-    },
-    MAX_QUEUE_VISUALIZATION: 20, // Limit visualization items for performance
-    STEP_INTERVAL_MS: 100 // Milliseconds between auto-steps when holding button
-  },
-
   // Rendering constants
   RENDERING: {
     // Camera and zoom settings

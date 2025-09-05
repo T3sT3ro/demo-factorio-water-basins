@@ -4,7 +4,7 @@
  * @param {number} index - The index to convert to letters
  * @returns {string} Letter sequence string
  */
-function generateLetterSequence(index) {
+export function generateLetterSequence(index) {
   let result = "";
   let num = index;
 
@@ -15,8 +15,3 @@ function generateLetterSequence(index) {
 
   return result;
 }
-
-/**
- * @type {{generateLetterSequence: (index: number) => string}}
- */
-exports.generateLetterSequence = generateLetterSequence;

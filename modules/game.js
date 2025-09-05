@@ -18,8 +18,13 @@ export class GameState {
     // Track current seed for noise regeneration
     this.currentSeed = 0;
 
-    // Initialize terrain
+    // Initialize terrain but delay basin computation
     this.heights = this.heightGenerator.generate(this.currentSeed);
+    // NOTE: Basin computation is now delayed to allow debug state restoration
+  }
+
+  // Call this after debug state is restored
+  performInitialBasinComputation() {
     this.basinManager.computeBasins(this.heights);
   }
 

@@ -379,96 +379,11 @@ export class Renderer {
     this.layerDirty.interactive = false;
   }
 
-  renderDebugLayer(debugState) {
+  renderDebugLayer(_debugState) {
     if (!this.layerDirty.debug) return;
 
+    // Debug visualization removed - just clear the layer
     this.clearLayer(this.debugCtx);
-
-    if (!debugState || !debugState.enabled) {
-      this.layerDirty.debug = false;
-      return;
-    }
-
-    this.applyCameraTransformToContext(this.debugCtx);
-
-    const radius = CONFIG.TILE_SIZE / 4;
-    const centerOffset = CONFIG.TILE_SIZE / 2;
-
-    // Draw visited tiles - green circles
-    if (debugState.visitedTiles) {
-      this.debugCtx.strokeStyle = "rgba(0, 255, 0, 0.7)";
-      this.debugCtx.lineWidth = this.getScaledLineWidth(1);
-      for (const tileKey of debugState.visitedTiles) {
-        const [x, y] = tileKey.split(",").map(Number);
-        this.debugCtx.beginPath();
-        this.debugCtx.arc(
-          x * CONFIG.TILE_SIZE + centerOffset,
-          y * CONFIG.TILE_SIZE + centerOffset,
-          radius * 0.8,
-          0,
-          2 * Math.PI
-        );
-        this.debugCtx.stroke();
-      }
-    }
-
-    // Draw queue tiles - yellow circles
-    if (debugState.queueTiles) {
-      this.debugCtx.strokeStyle = "rgba(255, 255, 0, 0.8)";
-      this.debugCtx.lineWidth = this.getScaledLineWidth(1);
-      for (const tileKey of debugState.queueTiles) {
-        const [x, y] = tileKey.split(",").map(Number);
-        this.debugCtx.beginPath();
-        this.debugCtx.arc(
-          x * CONFIG.TILE_SIZE + centerOffset,
-          y * CONFIG.TILE_SIZE + centerOffset,
-          radius * 0.9,
-          0,
-          2 * Math.PI
-        );
-        this.debugCtx.stroke();
-      }
-    }
-
-    // Draw current processing tile - red filled circle
-    if (debugState.currentTile) {
-      this.debugCtx.fillStyle = "rgba(255, 0, 0, 0.8)";
-      this.debugCtx.strokeStyle = "red";
-      this.debugCtx.lineWidth = this.getScaledLineWidth(1);
-      const [x, y] = debugState.currentTile.split(",").map(Number);
-      this.debugCtx.beginPath();
-      this.debugCtx.arc(
-        x * CONFIG.TILE_SIZE + centerOffset,
-        y * CONFIG.TILE_SIZE + centerOffset,
-        radius,
-        0,
-        2 * Math.PI
-      );
-      this.debugCtx.fill();
-      this.debugCtx.stroke();
-    }
-
-    // Draw basin boundaries for current step - blue circles
-    if (debugState.currentBasinTiles) {
-      this.debugCtx.strokeStyle = "rgba(0, 0, 255, 0.9)";
-      this.debugCtx.lineWidth = this.getScaledLineWidth(2);
-      for (const tileKey of debugState.currentBasinTiles) {
-        const [x, y] = tileKey.split(",").map(Number);
-        // Skip current tile as it's already drawn in red
-        if (debugState.currentTile && tileKey === debugState.currentTile) continue;
-        
-        this.debugCtx.beginPath();
-        this.debugCtx.arc(
-          x * CONFIG.TILE_SIZE + centerOffset,
-          y * CONFIG.TILE_SIZE + centerOffset,
-          radius * 0.7,
-          0,
-          2 * Math.PI
-        );
-        this.debugCtx.stroke();
-      }
-    }
-
     this.layerDirty.debug = false;
   }
 
@@ -712,7 +627,7 @@ export class Renderer {
   }
 
   onDebugStateChanged() {
-    this.markLayerDirty("debug");
+    // Debug visualization removed - no longer marks debug layer dirty
   }
 
   drawBrushOverlay(overlayMap, selectedDepth) {

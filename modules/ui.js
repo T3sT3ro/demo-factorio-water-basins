@@ -1,7 +1,7 @@
 // UI controls and event handling
 
 import { CONFIG } from "./config.js";
-import { UI_CONSTANTS, CSS_CLASSES } from "./constants.js";
+import { UI_CONSTANTS } from "./constants.js";
 
 export class UISettings {
   constructor() {
@@ -393,7 +393,7 @@ export class DebugDisplay {
     }
 
     const basinManager = this.gameState.getBasinManager();
-    const debugInfo = basinManager.getDebugInfo(heights);
+    const debugInfo = basinManager.getBasinAnalysis(heights);
     if (!debugInfo) {
       console.warn("No debug info available for basin display");
       return;

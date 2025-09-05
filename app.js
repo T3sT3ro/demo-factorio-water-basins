@@ -91,6 +91,9 @@ class TilemapWaterPumpingApp {
 
     // Initialize UI components
     this.uiSettings = new this.UISettings();
+
+    // Perform initial basin computation
+    this.gameState.performInitialBasinComputation();
     this.noiseControlUI = new this.NoiseControlUI(
       this.gameState.getHeightGenerator().getNoiseSettings(),
       () => this.onNoiseSettingsChanged(),
@@ -106,8 +109,7 @@ class TilemapWaterPumpingApp {
         this.renderer.onWaterChanged(); // Reservoirs can contain water
       },
       updateControls: () => this.updateReservoirControls(),
-      updateDisplays: () => this.updateDebugDisplays(),
-      updateDebugDisplays: () => this.updateDebugDisplays(),
+      updateDisplays: () => this.updateBasinAnalysisDisplays(),
       clearSelection: () => this.clearReservoirSelection(),
       draw: () => this.draw(),
     });
@@ -153,8 +155,8 @@ class TilemapWaterPumpingApp {
     // Update insights display
     this.updateInsightsDisplay();
 
-    // Update debug displays with initial state
-    this.updateDebugDisplays();
+    // Update basin analysis displays with initial state
+    this.updateBasinAnalysisDisplays();
 
     // Initial render
     this.draw();
@@ -182,13 +184,13 @@ class TilemapWaterPumpingApp {
     performance.mark("rendering-end");
     performance.measure("Rendering", "rendering-start", "rendering-end");
 
-    performance.mark("debug-display-update-start");
-    this.updateDebugDisplays();
-    performance.mark("debug-display-update-end");
+    performance.mark("basin-analysis-update-start");
+    this.updateBasinAnalysisDisplays();
+    performance.mark("basin-analysis-update-end");
     performance.measure(
-      "Debug Display Update",
-      "debug-display-update-start",
-      "debug-display-update-end",
+      "Basin Analysis Display Update",
+      "basin-analysis-update-start",
+      "basin-analysis-update-end",
     );
 
     performance.mark("noise-settings-change-end");
@@ -213,7 +215,7 @@ class TilemapWaterPumpingApp {
     this.renderer.onPumpsChanged();
     this.renderer.onLabelsToggled();
     this.draw();
-    this.updateDebugDisplays();
+    this.updateBasinAnalysisDisplays();
     this.updateReservoirControls();
 
     // Update noise control UI to reflect loaded settings
@@ -241,57 +243,13 @@ class TilemapWaterPumpingApp {
     this.LegendRenderer.updateSelectedDepth(this.selectedDepth);
   }
 
-  handleDebugStep() {
-    if (this.gameState.basinManager.debugState.enabled) {
-      if (this.gameState.basinManager.stepDebug()) {
-        // Continue computation after step
-        this.gameState.recomputeAll();
-        this.draw();
-      }
-    }
-  }
+  // Debug stepping methods removed - functionality no longer supported
 
-  handleStepOverBasin() {
-    if (this.gameState.basinManager.debugState.enabled) {
-      // Get current basin being processed
-      const currentBasinId = this.gameState.basinManager.debugState.currentBasinId;
-      
-      // Step until we finish the current basin or start a new one
-      let stepsCount = 0;
-      const maxSteps = 10000; // Safety limit
-      
-      while (stepsCount < maxSteps && this.gameState.basinManager.debugState.enabled) {
-        const continueProcessing = this.gameState.basinManager.stepDebug();
-        stepsCount++;
-        
-        // Check if we've moved to a different basin or finished
-        if (!continueProcessing || 
-            (this.gameState.basinManager.debugState.currentBasinId !== currentBasinId && 
-             this.gameState.basinManager.debugState.currentBasinId !== null)) {
-          break;
-        }
-      }
-      
-      // Continue computation after stepping over basin
-      this.gameState.recomputeAll();
-      this.scheduleRender();
-    }
-  }
-
-  updateDebugUI(debugState) {
+  updateDebugUI(_debugState) {
     const stageEl = document.getElementById("debugStage");
-    const stepCountEl = document.getElementById("debugStepCount");
-    const queueSizeEl = document.getElementById("debugQueueSize");
-    const visitedSizeEl = document.getElementById("debugVisitedSize");
-    const currentDepthEl = document.getElementById("debugCurrentDepth");
-    const bucketsUsedEl = document.getElementById("debugBucketsUsed");
-
-    if (stageEl) stageEl.textContent = debugState.stage || 'uninitialized';
-    if (stepCountEl) stepCountEl.textContent = debugState.currentStep || 0;
-    if (queueSizeEl) queueSizeEl.textContent = debugState.queueSize || 0;
-    if (visitedSizeEl) visitedSizeEl.textContent = debugState.visitedSize || 0;
-    if (currentDepthEl) currentDepthEl.textContent = debugState.currentDepth >= 0 ? debugState.currentDepth : '-';
-    if (bucketsUsedEl) bucketsUsedEl.textContent = `${debugState.bucketsUsed || 0}/10`;
+    
+    // Only show stage, hardcoded to "not-implemented"
+    if (stageEl) stageEl.textContent = 'not-implemented';
   }
 
   getBrushTiles(centerX, centerY) {
@@ -347,7 +305,7 @@ class TilemapWaterPumpingApp {
     this.renderer.onWaterChanged();
     // Basin labels also need to be updated when terrain changes affect basins
     this.renderer.onLabelsToggled();
-    this.updateDebugDisplays();
+    this.updateBasinAnalysisDisplays();
   }
 
   setupEventHandlers() {
@@ -358,7 +316,7 @@ class TilemapWaterPumpingApp {
         this.gameState.tick();
         this.renderer.onWaterChanged(); // Water levels change during simulation
         this.draw();
-        this.updateDebugDisplays();
+        this.updateBasinAnalysisDisplays();
 
         // Start timer for continuous ticking after a delay
         this.tickTimer = setTimeout(() => {
@@ -366,7 +324,7 @@ class TilemapWaterPumpingApp {
             this.gameState.tick();
             this.renderer.onWaterChanged(); // Water levels change during simulation
             this.draw();
-            this.updateDebugDisplays();
+            this.updateBasinAnalysisDisplays();
           }, 100); // Tick every 100ms when held
         }, 500); // Wait 500ms before starting continuous ticking
       };
@@ -396,7 +354,7 @@ class TilemapWaterPumpingApp {
         // Basin labels also need to be updated when terrain changes affect basins
         this.renderer.onLabelsToggled();
         this.draw();
-        this.updateDebugDisplays();
+        this.updateBasinAnalysisDisplays();
       };
     }
 
@@ -407,7 +365,7 @@ class TilemapWaterPumpingApp {
         this.renderer.onPumpsChanged();
         this.updateReservoirControls();
         this.draw();
-        this.updateDebugDisplays();
+        this.updateBasinAnalysisDisplays();
       };
     }
 
@@ -417,7 +375,7 @@ class TilemapWaterPumpingApp {
         this.gameState.clearAllWater();
         this.renderer.onWaterChanged();
         this.draw();
-        this.updateDebugDisplays();
+        this.updateBasinAnalysisDisplays();
       };
     }
 
@@ -526,7 +484,7 @@ class TilemapWaterPumpingApp {
           this.renderer.onWaterChanged();
         }
         this.draw();
-        this.updateDebugDisplays();
+        this.updateBasinAnalysisDisplays();
         return;
       }
 
@@ -537,14 +495,14 @@ class TilemapWaterPumpingApp {
           this.renderer.onPumpsChanged();
           this.updateReservoirControls();
           this.draw();
-          this.updateDebugDisplays();
+          this.updateBasinAnalysisDisplays();
         } else if (e.button === 2) { // SHIFT + RMB - add inlet pump
           const selectedId = this.gameState.getSelectedReservoir();
           const _reservoirId = this.gameState.addPump(mx, my, "inlet", selectedId !== null);
           this.renderer.onPumpsChanged();
           this.updateReservoirControls();
           this.draw();
-          this.updateDebugDisplays();
+          this.updateBasinAnalysisDisplays();
         }
         return;
       }
@@ -669,93 +627,31 @@ class TilemapWaterPumpingApp {
     const enableDebugCheckbox = document.getElementById("enableFloodFillDebug");
     const stepButton = document.getElementById("stepFloodFill");
     const stepOverBasinButton = document.getElementById("stepOverBasin");
-    const resetButton = document.getElementById("resetFloodFill");
 
     if (enableDebugCheckbox) {
-      // Restore checkbox state from localStorage
-      const savedDebugState = localStorage.getItem('floodfillDebugEnabled') === 'true';
-      enableDebugCheckbox.checked = savedDebugState;
+      // Debug stepping is not implemented - keep checkbox unchecked and buttons disabled
+      enableDebugCheckbox.checked = false;
       
-      // Initialize button states based on saved checkbox state
-      if (stepButton) stepButton.disabled = !savedDebugState;
-      if (stepOverBasinButton) stepOverBasinButton.disabled = !savedDebugState;
-      if (resetButton) resetButton.disabled = !savedDebugState;
+      // Disable all debug buttons since functionality is not implemented
+      if (stepButton) stepButton.disabled = true;
+      if (stepOverBasinButton) stepOverBasinButton.disabled = true;
       
-      // If debug was previously enabled, re-enable it
-      if (savedDebugState) {
-        this.gameState.basinManager.enableStepByStepDebug(true, (debugState) => {
-          this.updateDebugUI(debugState);
-          this.renderer.onDebugStateChanged();
-          this.draw();
-        });
-      }
+      // Set debug UI to show not-implemented status
+      this.updateDebugUI({});
 
       enableDebugCheckbox.addEventListener("change", (e) => {
-        const enabled = e.target.checked;
+        const _enabled = e.target.checked;
         
-        // Save checkbox state to localStorage
-        localStorage.setItem('floodfillDebugEnabled', enabled.toString());
+        // Debug functionality is not implemented - just update UI
+        this.updateDebugUI({});
         
-        this.gameState.basinManager.enableStepByStepDebug(enabled, (debugState) => {
-          this.updateDebugUI(debugState);
-          this.renderer.onDebugStateChanged();
-          this.draw();
-        });
-        
-        // Enable/disable step controls
-        if (stepButton) stepButton.disabled = !enabled;
-        if (stepOverBasinButton) stepOverBasinButton.disabled = !enabled;
-        if (resetButton) resetButton.disabled = !enabled;
-        
-        if (!enabled) {
-          // Reset debug state and redraw
-          this.renderer.onDebugStateChanged();
-          this.updateDebugUI({ stage: 'uninitialized', currentStep: 0, queueSize: 0, visitedSize: 0, currentDepth: -1, bucketsUsed: 0 });
-          this.draw();
-        }
+        // Keep buttons disabled since debug stepping is not implemented
+        if (stepButton) stepButton.disabled = true;
+        if (stepOverBasinButton) stepOverBasinButton.disabled = true;
       });
     }
 
-    // Step forward button with hold-to-repeat functionality
-    if (stepButton) {
-      let stepInterval;
-      
-      const startStepping = () => {
-        this.handleDebugStep();
-        stepInterval = setInterval(() => {
-          this.handleDebugStep();
-        }, 100); // Step every 100ms when holding
-      };
-      
-      const stopStepping = () => {
-        if (stepInterval) {
-          clearInterval(stepInterval);
-          stepInterval = null;
-        }
-      };
-      
-      stepButton.addEventListener("mousedown", startStepping);
-      stepButton.addEventListener("mouseup", stopStepping);
-      stepButton.addEventListener("mouseleave", stopStepping);
-      stepButton.addEventListener("touchstart", startStepping);
-      stepButton.addEventListener("touchend", stopStepping);
-    }
-
-    // Step over basin button
-    if (stepOverBasinButton) {
-      stepOverBasinButton.addEventListener("click", () => {
-        this.handleStepOverBasin();
-      });
-    }
-
-    if (resetButton) {
-      resetButton.addEventListener("click", () => {
-        this.gameState.basinManager.resetDebugState();
-        this.renderer.onDebugStateChanged();
-        this.updateDebugUI({ stage: 'uninitialized', currentStep: 0, queueSize: 0, visitedSize: 0, currentDepth: -1, bucketsUsed: 0 });
-        this.draw();
-      });
-    }
+    // Debug button functionality removed - buttons are disabled
   }
 
   updateInsightsDisplay(tileInfo = null) {
@@ -868,7 +764,7 @@ class TilemapWaterPumpingApp {
     this.draw();
   }
 
-  updateDebugDisplays() {
+  updateBasinAnalysisDisplays() {
     this.debugDisplay.updateBasinsDisplay();
     this.debugDisplay.updateReservoirsDisplay(
       this.gameState.getReservoirs(),
@@ -879,7 +775,7 @@ class TilemapWaterPumpingApp {
   }
 
   draw() {
-    // Use optimized layered rendering
+    // Use optimized layered rendering - debug state removed
     this.renderer.renderOptimized(
       this.gameState,
       this.uiSettings,
@@ -888,7 +784,7 @@ class TilemapWaterPumpingApp {
       this.brushCenter,
       this.brushSize,
       this.selectedDepth,
-      this.gameState.basinManager.getDebugState(),
+      null, // Debug state no longer passed
     );
   }
 }
