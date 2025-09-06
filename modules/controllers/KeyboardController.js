@@ -1,4 +1,5 @@
 // Keyboard controller for handling keyboard shortcuts
+import { INTERACTION_CONFIG } from "../config/InteractionConfig.js";
 export class KeyboardController {
   constructor() {
     this.callbacks = {};
@@ -16,7 +17,7 @@ export class KeyboardController {
 
   handleKeyDown(e) {
     // Handle 0-9 keys for depth selection
-    if (e.key >= "0" && e.key <= "9") {
+    if (INTERACTION_CONFIG.KEYBOARD.DEPTH_KEYS.includes(e.key)) {
       const depth = parseInt(e.key);
       this.callbacks.setSelectedDepth(depth);
       e.preventDefault();

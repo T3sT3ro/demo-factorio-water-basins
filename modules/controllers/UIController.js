@@ -1,4 +1,5 @@
 // UI controller for buttons, forms, and control elements
+import { INTERACTION_CONFIG, validateReservoirId } from "../config/InteractionConfig.js";
 export class UIController {
   constructor(gameState, renderer) {
     this.gameState = gameState;
@@ -49,8 +50,8 @@ export class UIController {
           this.callbacks.onWaterChanged();
           this.callbacks.draw();
           this.callbacks.updateBasinAnalysis();
-        }, 100); // Tick every 100ms when held
-      }, 500); // Wait 500ms before starting continuous ticking
+        }, INTERACTION_CONFIG.TIMING.TICK_CONTINUOUS_INTERVAL_MS);
+      }, INTERACTION_CONFIG.TIMING.TICK_HOLD_DELAY_MS);
     };
 
     const stopTicking = () => {
@@ -163,7 +164,7 @@ export class UIController {
     const input = document.getElementById("reservoirInput");
     if (input && input.value === "") {
       const selectedId = this.gameState.getSelectedReservoir();
-      input.value = selectedId !== null ? selectedId : 1;
+      input.value = selectedId !== null ? selectedId : INTERACTION_CONFIG.GAME.DEFAULT_RESERVOIR_ID;
     }
   }
 
@@ -171,14 +172,14 @@ export class UIController {
     const input = document.getElementById("reservoirInput");
     if (input) {
       const value = input.value;
-      if (value === "" || parseInt(value) < 1) {
-        input.value = "1";
-        return 1;
+      if (value === "" || parseInt(value) < INTERACTION_CONFIG.GAME.MIN_RESERVOIR_ID) {
+        input.value = INTERACTION_CONFIG.GAME.DEFAULT_RESERVOIR_ID.toString();
+        return INTERACTION_CONFIG.GAME.DEFAULT_RESERVOIR_ID;
       }
       const id = parseInt(value);
-      return id > 0 ? id : 1;
+      return validateReservoirId(id);
     }
-    return 1;
+    return INTERACTION_CONFIG.GAME.DEFAULT_RESERVOIR_ID;
   }
 
   clearReservoirSelection() {

@@ -1,5 +1,6 @@
 // Canvas interaction controller - handles mouse and drawing operations
 import { CONFIG } from "../config.js";
+import { INTERACTION_CONFIG, validateDepth, validateBrushSize } from "../config/InteractionConfig.js";
 
 export class CanvasController {
   constructor(canvas, gameState, renderer, uiConstants) {
@@ -12,8 +13,8 @@ export class CanvasController {
     this.isDrawing = false;
     this.brushOverlay = new Map(); // key: "x,y", value: depth
     this.brushCenter = null; // {x, y} in tile coordinates
-    this.brushSize = uiConstants.BRUSH.MIN_SIZE;
-    this.selectedDepth = 0;
+    this.brushSize = INTERACTION_CONFIG.BRUSH.DEFAULT_SIZE;
+    this.selectedDepth = INTERACTION_CONFIG.GAME.DEFAULT_DEPTH;
     
     // Panning state
     this.isPanning = false;
@@ -57,7 +58,7 @@ export class CanvasController {
       this.isPanning = true;
       this.lastPanX = screenX;
       this.lastPanY = screenY;
-      this.canvas.style.cursor = "grabbing";
+      this.canvas.style.cursor = INTERACTION_CONFIG.MOUSE.PAN_CURSOR;
       e.preventDefault();
       return;
     }
@@ -191,7 +192,7 @@ export class CanvasController {
   handleMouseUp(e) {
     if (e.button === 1 && this.isPanning) { // Middle mouse button
       this.isPanning = false;
-      this.canvas.style.cursor = "default";
+      this.canvas.style.cursor = INTERACTION_CONFIG.MOUSE.DEFAULT_CURSOR;
     } else if (e.button === 0 && this.isDrawing) { // Left mouse button
       this.isDrawing = false;
       this.commitBrushChanges();
@@ -202,7 +203,7 @@ export class CanvasController {
   handleMouseLeave() {
     if (this.isPanning) {
       this.isPanning = false;
-      this.canvas.style.cursor = "default";
+      this.canvas.style.cursor = INTERACTION_CONFIG.MOUSE.DEFAULT_CURSOR;
     }
     if (this.isDrawing) {
       this.isDrawing = false;
@@ -224,10 +225,7 @@ export class CanvasController {
     if (e.shiftKey) {
       // SHIFT + Wheel - change brush size
       const delta = e.deltaY > 0 ? -1 : 1;
-      this.brushSize = Math.max(
-        this.uiConstants.BRUSH.MIN_SIZE,
-        Math.min(this.uiConstants.BRUSH.MAX_SIZE, this.brushSize + delta),
-      );
+      this.brushSize = validateBrushSize(this.brushSize + delta);
       console.log(`Brush size: ${this.brushSize}`);
       this.callbacks.updateInsights();
       this.callbacks.draw();
@@ -237,7 +235,9 @@ export class CanvasController {
       this.callbacks.setSelectedDepth(this.selectedDepth + delta);
     } else {
       // Normal zoom
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      const zoomFactor = e.deltaY > 0 
+        ? INTERACTION_CONFIG.MOUSE.ZOOM_FACTOR_OUT 
+        : INTERACTION_CONFIG.MOUSE.ZOOM_FACTOR_IN;
       this.renderer.zoomAt(screenX, screenY, zoomFactor);
       this.callbacks.updateInsights();
       this.callbacks.draw();
@@ -321,6 +321,11 @@ export class CanvasController {
   getSelectedDepth() { return this.selectedDepth; }
   
   // Setters
-  setBrushSize(size) { this.brushSize = size; }
-  setSelectedDepth(depth) { this.selectedDepth = depth; }
+  setBrushSize(size) { 
+    this.brushSize = validateBrushSize(size); 
+  }
+  
+  setSelectedDepth(depth) { 
+    this.selectedDepth = validateDepth(depth); 
+  }
 }
