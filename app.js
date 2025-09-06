@@ -10,16 +10,25 @@ const rendererModule = import(`./modules/renderer.js?v=${moduleVersion}`);
 const uiModule = import(`./modules/ui.js?v=${moduleVersion}`);
 const constantsModule = import(`./modules/constants.js?v=${moduleVersion}`);
 const saveloadModule = import(`./modules/saveload.js?v=${moduleVersion}`);
+const canvasControllerModule = import(`./modules/controllers/CanvasController.js?v=${moduleVersion}`);
+const uiControllerModule = import(`./modules/controllers/UIController.js?v=${moduleVersion}`);
+const keyboardControllerModule = import(`./modules/controllers/KeyboardController.js?v=${moduleVersion}`);
 
 // Wait for all modules to load, then initialize the app
-Promise.all([configModule, gameModule, rendererModule, uiModule, constantsModule, saveloadModule])
-  .then(([config, game, renderer, ui, constants, saveload]) => {
+Promise.all([
+  configModule, gameModule, rendererModule, uiModule, constantsModule, saveloadModule,
+  canvasControllerModule, uiControllerModule, keyboardControllerModule
+])
+  .then(([config, game, renderer, ui, constants, saveload, canvasController, uiController, keyboardController]) => {
     const { setupCanvas, CONFIG } = config;
     const { GameState } = game;
     const { Renderer, LegendRenderer } = renderer;
     const { UISettings, NoiseControlUI, DebugDisplay } = ui;
     const { UI_CONSTANTS } = constants;
     const { SaveLoadManager } = saveload;
+    const { CanvasController } = canvasController;
+    const { UIController } = uiController;
+    const { KeyboardController } = keyboardController;
 
     // Create and initialize the app
     const app = new TilemapWaterPumpingApp(
@@ -33,6 +42,9 @@ Promise.all([configModule, gameModule, rendererModule, uiModule, constantsModule
       DebugDisplay,
       UI_CONSTANTS,
       SaveLoadManager,
+      CanvasController,
+      UIController,
+      KeyboardController,
     );
     
     // Store app globally and initialize when DOM is ready
@@ -60,6 +72,9 @@ class TilemapWaterPumpingApp {
     DebugDisplay,
     UI_CONSTANTS,
     SaveLoadManager,
+    CanvasController,
+    UIController,
+    KeyboardController,
   ) {
     this.setupCanvas = setupCanvas;
     this.CONFIG = CONFIG;
@@ -71,13 +86,12 @@ class TilemapWaterPumpingApp {
     this.DebugDisplay = DebugDisplay;
     this.UI_CONSTANTS = UI_CONSTANTS;
     this.SaveLoadManager = SaveLoadManager;
+    this.CanvasController = CanvasController;
+    this.UIController = UIController;
+    this.KeyboardController = KeyboardController;
 
-    // Brush state
-    this.brushSize = UI_CONSTANTS.BRUSH.MIN_SIZE;
+    // Selected depth for drawing
     this.selectedDepth = 0;
-    this.brushOverlay = new Map(); // key: "x,y", value: depth
-    this.isDrawing = false;
-    this.brushCenter = null; // {x, y} in tile coordinates
   }
 
   init() {
@@ -98,6 +112,20 @@ class TilemapWaterPumpingApp {
       this.gameState.getHeightGenerator().getNoiseSettings(),
       () => this.onNoiseSettingsChanged(),
     );
+
+    // Initialize controllers
+    this.canvasController = new this.CanvasController(
+      this.canvas,
+      this.gameState,
+      this.renderer,
+      this.UI_CONSTANTS
+    );
+    this.uiController = new this.UIController(this.gameState, this.renderer);
+    this.keyboardController = new this.KeyboardController();
+
+    // Setup controller callbacks
+    this.setupControllerCallbacks();
+
     this.debugDisplay = new this.DebugDisplay(this.gameState.getBasinManager(), this.gameState, {
       removePump: (index) => {
         this.gameState.getPumpManager().removePump(index);
@@ -129,19 +157,36 @@ class TilemapWaterPumpingApp {
       this.draw();
     });
 
-    // Tick control state
-    this.tickTimer = null;
-    this.tickInterval = null;
-    123;
-
     this.initialize();
   }
 
+  setupControllerCallbacks() {
+    const commonCallbacks = {
+      onTerrainChanged: () => this.renderer.onTerrainChanged(),
+      onWaterChanged: () => this.renderer.onWaterChanged(),
+      onPumpsChanged: () => this.renderer.onPumpsChanged(),
+      onLabelsToggled: () => this.renderer.onLabelsToggled(),
+      updateBasinAnalysis: () => this.updateBasinAnalysisDisplays(),
+      updateReservoirControls: () => this.updateReservoirControls(),
+      draw: () => this.draw(),
+      setSelectedDepth: (depth) => this.setSelectedDepth(depth),
+      updateInsights: (tileInfo) => this.updateInsightsDisplay(tileInfo),
+      onGameStateChanged: () => this.onGameStateChanged()
+    };
+
+    this.canvasController.setCallbacks(commonCallbacks);
+    this.uiController.setCallbacks(commonCallbacks);
+    this.uiController.setUISettings(this.uiSettings);
+    this.keyboardController.setCallbacks(commonCallbacks);
+  }
+
   initialize() {
-    // Setup UI controls
-    this.setupEventHandlers();
-    this.setupCanvasEventHandlers();
-    this.setupKeyboardEventHandlers();
+    // Setup controller event handlers
+    this.canvasController.setupEventHandlers();
+    this.uiController.setupEventHandlers();
+    this.keyboardController.setupEventHandlers();
+    
+    // Setup remaining UI controls
     this.noiseControlUI.setupMainNoiseControls();
     this.noiseControlUI.createOctaveControls();
 
@@ -222,19 +267,9 @@ class TilemapWaterPumpingApp {
     this.noiseControlUI.updateUI();
   }
 
-  setupKeyboardEventHandlers() {
-    document.addEventListener("keydown", (e) => {
-      // Handle 0-9 keys for depth selection
-      if (e.key >= "0" && e.key <= "9") {
-        const depth = parseInt(e.key);
-        this.setSelectedDepth(depth);
-        e.preventDefault();
-      }
-    });
-  }
-
   setSelectedDepth(depth) {
     this.selectedDepth = Math.max(0, Math.min(9, depth));
+    this.canvasController.setSelectedDepth(this.selectedDepth);
     this.updateLegendSelection();
     console.log(`Selected depth: ${this.selectedDepth}`);
   }
@@ -250,377 +285,6 @@ class TilemapWaterPumpingApp {
     
     // Only show stage, hardcoded to "not-implemented"
     if (stageEl) stageEl.textContent = 'not-implemented';
-  }
-
-  getBrushTiles(centerX, centerY) {
-    const tiles = [];
-    const radius = Math.floor(this.brushSize / 2);
-
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dy = -radius; dy <= radius; dy++) {
-        const x = centerX + dx;
-        const y = centerY + dy;
-
-        // Check if tile is within world bounds
-        if (x >= 0 && y >= 0 && x < this.CONFIG.WORLD_W && y < this.CONFIG.WORLD_H) {
-          // For circular brush, check distance
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance <= radius) {
-            tiles.push({ x, y });
-          }
-        }
-      }
-    }
-
-    return tiles;
-  }
-
-  updateBrushOverlay(centerX, centerY) {
-    if (!this.isDrawing) return;
-
-    const tiles = this.getBrushTiles(centerX, centerY);
-
-    for (const tile of tiles) {
-      const key = `${tile.x},${tile.y}`;
-      this.brushOverlay.set(key, this.selectedDepth);
-    }
-  }
-
-  commitBrushChanges() {
-    if (this.brushOverlay.size === 0) return;
-
-    // Apply all changes at once using batch method (no recomputation per tile)
-    for (const [key, depth] of this.brushOverlay) {
-      const [x, y] = key.split(",").map((n) => parseInt(n));
-      this.gameState.setDepthAtBatch(x, y, depth);
-    }
-
-    // Clear overlay
-    this.brushOverlay.clear();
-
-    // Only revalidate the map once after all changes are committed
-    this.gameState.revalidateMap();
-    // Mark terrain and water layers as dirty after terrain changes
-    this.renderer.onTerrainChanged();
-    this.renderer.onWaterChanged();
-    // Basin labels also need to be updated when terrain changes affect basins
-    this.renderer.onLabelsToggled();
-    this.updateBasinAnalysisDisplays();
-  }
-
-  setupEventHandlers() {
-    // Tick button with hold-to-continue functionality
-    const tickBtn = document.getElementById("tickBtn");
-    if (tickBtn) {
-      tickBtn.onmousedown = () => {
-        this.gameState.tick();
-        this.renderer.onWaterChanged(); // Water levels change during simulation
-        this.draw();
-        this.updateBasinAnalysisDisplays();
-
-        // Start timer for continuous ticking after a delay
-        this.tickTimer = setTimeout(() => {
-          this.tickInterval = setInterval(() => {
-            this.gameState.tick();
-            this.renderer.onWaterChanged(); // Water levels change during simulation
-            this.draw();
-            this.updateBasinAnalysisDisplays();
-          }, 100); // Tick every 100ms when held
-        }, 500); // Wait 500ms before starting continuous ticking
-      };
-
-      const stopTicking = () => {
-        if (this.tickTimer) {
-          clearTimeout(this.tickTimer);
-          this.tickTimer = null;
-        }
-        if (this.tickInterval) {
-          clearInterval(this.tickInterval);
-          this.tickInterval = null;
-        }
-      };
-
-      tickBtn.onmouseup = stopTicking;
-      tickBtn.onmouseleave = stopTicking;
-    }
-
-    // Other control buttons
-    const randomizeBtn = document.getElementById("randomizeBtn");
-    if (randomizeBtn) {
-      randomizeBtn.onclick = () => {
-        this.gameState.randomizeHeights();
-        this.renderer.onTerrainChanged();
-        this.renderer.onWaterChanged(); // Water basins change with terrain
-        // Basin labels also need to be updated when terrain changes affect basins
-        this.renderer.onLabelsToggled();
-        this.draw();
-        this.updateBasinAnalysisDisplays();
-      };
-    }
-
-    const clearPumpsBtn = document.getElementById("clearPumps");
-    if (clearPumpsBtn) {
-      clearPumpsBtn.onclick = () => {
-        this.gameState.clearPumps();
-        this.renderer.onPumpsChanged();
-        this.updateReservoirControls();
-        this.draw();
-        this.updateBasinAnalysisDisplays();
-      };
-    }
-
-    const clearWaterBtn = document.getElementById("clearWater");
-    if (clearWaterBtn) {
-      clearWaterBtn.onclick = () => {
-        this.gameState.clearAllWater();
-        this.renderer.onWaterChanged();
-        this.draw();
-        this.updateBasinAnalysisDisplays();
-      };
-    }
-
-    // Label control event listeners
-    const showDepthLabelsEl = document.getElementById("showDepthLabels");
-    if (showDepthLabelsEl) {
-      showDepthLabelsEl.onchange = () => {
-        this.uiSettings.toggleDepthLabels();
-        this.renderer.onLabelsToggled();
-        this.draw();
-      };
-    }
-
-    const showPumpLabelsEl = document.getElementById("showPumpLabels");
-    if (showPumpLabelsEl) {
-      showPumpLabelsEl.onchange = () => {
-        this.uiSettings.togglePumpLabels();
-        this.renderer.onLabelsToggled();
-        this.draw();
-      };
-    }
-
-    const showBasinLabelsEl = document.getElementById("showBasinLabels");
-    if (showBasinLabelsEl) {
-      showBasinLabelsEl.onchange = () => {
-        this.uiSettings.toggleBasinLabels();
-        this.renderer.onLabelsToggled();
-        this.draw();
-      };
-    }
-
-    // Pipe system number input control
-    const reservoirInputEl = document.getElementById("reservoirInput");
-    if (reservoirInputEl) {
-      reservoirInputEl.oninput = (_e) => {
-        const desiredId = this.getDesiredReservoirIdFromInput();
-        this.gameState.setSelectedReservoir(desiredId);
-        this.renderer.onPumpsChanged(); // Pump highlighting changes
-        this.draw();
-      };
-    }
-  }
-
-  setupCanvasEventHandlers() {
-    let isPanning = false;
-    let lastPanX = 0;
-    let lastPanY = 0;
-
-    // Mouse down event
-    this.canvas.addEventListener("mousedown", (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-
-      // Handle middle mouse button for panning
-      if (e.button === 1) { // Middle mouse button
-        isPanning = true;
-        lastPanX = screenX;
-        lastPanY = screenY;
-        this.canvas.style.cursor = "grabbing";
-        e.preventDefault();
-        return;
-      }
-
-      // Convert screen coordinates to world coordinates for game logic
-      const worldPos = this.renderer.screenToWorld(screenX, screenY);
-      const mx = Math.floor(worldPos.x / this.CONFIG.TILE_SIZE);
-      const my = Math.floor(worldPos.y / this.CONFIG.TILE_SIZE);
-
-      if (mx < 0 || my < 0 || mx >= this.CONFIG.WORLD_W || my >= this.CONFIG.WORLD_H) return;
-
-      // Prevent context menu for right-click
-      if (e.button === 2) {
-        e.preventDefault();
-      }
-
-      // ALT + RMB - pipette tool
-      if (e.altKey && e.button === 2) {
-        const heights = this.gameState.getHeights();
-        const pickedDepth = heights[my][mx];
-        this.setSelectedDepth(pickedDepth);
-        return;
-      }
-
-      if (e.ctrlKey) {
-        if (e.shiftKey) {
-          if (e.button === 0) { // SHIFT + CTRL + LMB - link pump to pipe system
-            if (this.gameState.linkPumpToReservoir(mx, my)) {
-              console.log(
-                `Pipe System ${this.gameState.getSelectedReservoir()} selected for linking future pumps`,
-              );
-            } else {
-              console.log("No pump found at this location to link to");
-            }
-            this.updateReservoirControls();
-            this.draw();
-          }
-          return;
-        }
-
-        if (e.button === 0) { // CTRL + LMB - flood fill
-          this.gameState.floodFill(mx, my, true);
-          this.renderer.onWaterChanged();
-        } else if (e.button === 2) { // CTRL + RMB - flood empty
-          this.gameState.floodFill(mx, my, false);
-          this.renderer.onWaterChanged();
-        }
-        this.draw();
-        this.updateBasinAnalysisDisplays();
-        return;
-      }
-
-      if (e.shiftKey) {
-        if (e.button === 0) { // SHIFT + LMB - add outlet pump
-          const selectedId = this.gameState.getSelectedReservoir();
-          const _reservoirId = this.gameState.addPump(mx, my, "outlet", selectedId !== null);
-          this.renderer.onPumpsChanged();
-          this.updateReservoirControls();
-          this.draw();
-          this.updateBasinAnalysisDisplays();
-        } else if (e.button === 2) { // SHIFT + RMB - add inlet pump
-          const selectedId = this.gameState.getSelectedReservoir();
-          const _reservoirId = this.gameState.addPump(mx, my, "inlet", selectedId !== null);
-          this.renderer.onPumpsChanged();
-          this.updateReservoirControls();
-          this.draw();
-          this.updateBasinAnalysisDisplays();
-        }
-        return;
-      }
-
-      // Left mouse button - start painting
-      if (e.button === 0) {
-        this.isDrawing = true;
-        this.brushOverlay.clear();
-        this.updateBrushOverlay(mx, my);
-        this.gameState.setSelectedReservoir(null); // Clear pipe system selection
-        this.renderer.onPumpsChanged(); // Pump highlighting changes
-        this.updateReservoirControls();
-        this.draw();
-      }
-    });
-
-    // Mouse move event for panning, tile info, and painting
-    this.canvas.addEventListener("mousemove", (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-
-      if (isPanning) {
-        const deltaX = screenX - lastPanX;
-        const deltaY = screenY - lastPanY;
-
-        this.renderer.pan(-deltaX, -deltaY);
-
-        lastPanX = screenX;
-        lastPanY = screenY;
-
-        this.draw();
-      } else {
-        // Update tile info and brush position
-        const worldPos = this.renderer.screenToWorld(screenX, screenY);
-        const tileX = Math.floor(worldPos.x / this.CONFIG.TILE_SIZE);
-        const tileY = Math.floor(worldPos.y / this.CONFIG.TILE_SIZE);
-
-        // Update brush center for overlay rendering
-        this.brushCenter = { x: tileX, y: tileY };
-
-        // Continue painting if drawing
-        if (this.isDrawing) {
-          this.updateBrushOverlay(tileX, tileY);
-        }
-
-        const tileInfo = this.getTileInfo(tileX, tileY);
-        this.updateInsightsDisplay(tileInfo);
-        this.draw();
-      }
-    });
-
-    // Mouse up event
-    this.canvas.addEventListener("mouseup", (e) => {
-      if (e.button === 1 && isPanning) { // Middle mouse button
-        isPanning = false;
-        this.canvas.style.cursor = "default";
-      } else if (e.button === 0 && this.isDrawing) { // Left mouse button
-        this.isDrawing = false;
-        this.commitBrushChanges();
-        this.draw();
-      }
-    });
-
-    // Mouse leave event to stop panning, painting, and reset tile info
-    this.canvas.addEventListener("mouseleave", () => {
-      if (isPanning) {
-        isPanning = false;
-        this.canvas.style.cursor = "default";
-      }
-      if (this.isDrawing) {
-        this.isDrawing = false;
-        this.commitBrushChanges();
-        this.draw();
-      }
-      this.brushCenter = null;
-      // Reset to just zoom info when mouse leaves canvas
-      this.updateInsightsDisplay();
-      this.draw();
-    });
-
-    // Wheel event for zooming and brush size
-    this.canvas.addEventListener("wheel", (e) => {
-      e.preventDefault();
-
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-
-      if (e.shiftKey) {
-        // SHIFT + Wheel - change brush size
-        const delta = e.deltaY > 0 ? -1 : 1;
-        this.brushSize = Math.max(
-          this.UI_CONSTANTS.BRUSH.MIN_SIZE,
-          Math.min(this.UI_CONSTANTS.BRUSH.MAX_SIZE, this.brushSize + delta),
-        );
-        console.log(`Brush size: ${this.brushSize}`);
-        this.updateInsightsDisplay();
-        this.draw();
-      } else if (e.altKey) {
-        // ALT + Wheel - change selected depth
-        const delta = e.deltaY > 0 ? -1 : 1;
-        this.setSelectedDepth(this.selectedDepth + delta);
-      } else {
-        // Normal zoom
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        this.renderer.zoomAt(screenX, screenY, zoomFactor);
-        this.updateInsightsDisplay();
-        this.draw();
-      }
-    });
-
-    this.canvas.addEventListener("contextmenu", (e) => {
-      e.preventDefault(); // Prevent right-click context menu
-    });
-
-    // Debug UI event handlers
-    this.setupDebugEventHandlers();
   }
 
   setupDebugEventHandlers() {
@@ -665,7 +329,7 @@ class TilemapWaterPumpingApp {
     // Update brush size
     const brushValue = document.getElementById("brushValue");
     if (brushValue) {
-      brushValue.textContent = this.brushSize;
+      brushValue.textContent = this.canvasController.getBrushSize();
     }
 
     // Update tile info
@@ -705,63 +369,12 @@ class TilemapWaterPumpingApp {
     }
   }
 
-  getTileInfo(x, y) {
-    if (x < 0 || y < 0 || x >= this.CONFIG.WORLD_W || y >= this.CONFIG.WORLD_H) {
-      return null;
-    }
-
-    const heights = this.gameState.getHeights();
-    const basinManager = this.gameState.getBasinManager();
-    const pumps = this.gameState.getPumps();
-
-    const depth = heights[y][x];
-    const basinId = basinManager.getBasinIdAt(x, y);
-
-    // Check if there's a pump at this location
-    const pump = pumps.find((p) => p.x === x && p.y === y);
-    const pumpInfo = pump ? { mode: pump.mode, reservoirId: pump.reservoirId } : null;
-
-    return {
-      x,
-      y,
-      depth,
-      basinId,
-      pumpInfo,
-    };
-  }
-
   updateReservoirControls() {
-    // This method should only be called when we need to sync the input
-    // field with the internal state (like on initial load)
-    const input = document.getElementById("reservoirInput");
-    if (input && input.value === "") {
-      // Set to 1 if input is empty
-      const selectedId = this.gameState.getSelectedReservoir();
-      input.value = selectedId !== null ? selectedId : 1;
-    }
-  }
-
-  getDesiredReservoirIdFromInput() {
-    const input = document.getElementById("reservoirInput");
-    if (input) {
-      const value = input.value;
-      if (value === "" || parseInt(value) < 1) {
-        // Reset to 1 if invalid
-        input.value = "1";
-        return 1;
-      }
-      const id = parseInt(value);
-      return id > 0 ? id : 1;
-    }
-    return 1;
+    this.uiController.updateReservoirControls();
   }
 
   clearReservoirSelection() {
-    console.log("Clearing reservoir selection");
-    this.gameState.setSelectedReservoir(null);
-    this.renderer.onPumpsChanged(); // Pump highlighting changes
-    // Don't update input field - let it keep its current value as source of truth
-    this.draw();
+    this.uiController.clearReservoirSelection();
   }
 
   updateBasinAnalysisDisplays() {
@@ -780,9 +393,9 @@ class TilemapWaterPumpingApp {
       this.gameState,
       this.uiSettings,
       this.gameState.getSelectedReservoir(),
-      this.brushOverlay,
-      this.brushCenter,
-      this.brushSize,
+      this.canvasController.getBrushOverlay(),
+      this.canvasController.getBrushCenter(),
+      this.canvasController.getBrushSize(),
       this.selectedDepth,
       null, // Debug state no longer passed
     );
