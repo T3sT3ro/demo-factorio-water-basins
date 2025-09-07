@@ -1,7 +1,16 @@
 // Canvas interaction controller - handles mouse and drawing operations
 import { CONFIG } from "../config.js";
-import { INTERACTION_CONFIG, validateDepth, validateBrushSize } from "../config/InteractionConfig.js";
+import { INTERACTION_CONFIG, validateDepth, validateBrushSize } from '../config/InteractionConfig.js';
 
+/**
+ * CanvasController - Handles all mouse and canvas interactions
+ * 
+ * Responsibilities:
+ * - Mouse events (mousedown, mousemove, mouseup, wheel, leave)
+ * - Brush painting and terrain modification  
+ * - Zoom and pan operations
+ * - Validation of user inputs
+ */
 export class CanvasController {
   constructor(canvas, gameState, renderer, uiConstants) {
     this.canvas = canvas;
@@ -18,8 +27,8 @@ export class CanvasController {
     
     // Panning state
     this.isPanning = false;
-    this.lastPanX = 0;
-    this.lastPanY = 0;
+    this.lastPanX = INTERACTION_CONFIG.COORDINATES.ORIGIN;
+    this.lastPanY = INTERACTION_CONFIG.COORDINATES.ORIGIN;
     
     // Callbacks for communication with main app
     this.callbacks = {};
@@ -54,7 +63,7 @@ export class CanvasController {
     const screenY = e.clientY - rect.top;
 
     // Handle middle mouse button for panning
-    if (e.button === 1) {
+    if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.MIDDLE) {
       this.isPanning = true;
       this.lastPanX = screenX;
       this.lastPanY = screenY;
@@ -68,10 +77,10 @@ export class CanvasController {
     const mx = Math.floor(worldPos.x / CONFIG.TILE_SIZE);
     const my = Math.floor(worldPos.y / CONFIG.TILE_SIZE);
 
-    if (mx < 0 || my < 0 || mx >= CONFIG.WORLD_W || my >= CONFIG.WORLD_H) return;
+    if (mx < INTERACTION_CONFIG.COORDINATES.ORIGIN || my < INTERACTION_CONFIG.COORDINATES.ORIGIN || mx >= CONFIG.WORLD_W || my >= CONFIG.WORLD_H) return;
 
     // Prevent context menu for right-click
-    if (e.button === 2) {
+    if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.RIGHT) {
       e.preventDefault();
     }
 
@@ -80,7 +89,7 @@ export class CanvasController {
 
   handleGameInteraction(e, mx, my) {
     // ALT + RMB - pipette tool
-    if (e.altKey && e.button === 2) {
+    if (e.altKey && e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.RIGHT) {
       const heights = this.gameState.getHeights();
       const pickedDepth = heights[my][mx];
       this.callbacks.setSelectedDepth(pickedDepth);
@@ -100,7 +109,7 @@ export class CanvasController {
     }
 
     // Left mouse button - start painting
-    if (e.button === 0) {
+    if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.LEFT) {
       this.isDrawing = true;
       this.brushOverlay.clear();
       this.updateBrushOverlay(mx, my);
@@ -113,7 +122,7 @@ export class CanvasController {
 
   handleControlInteractions(e, mx, my) {
     if (e.shiftKey) {
-      if (e.button === 0) { // SHIFT + CTRL + LMB - link pump to pipe system
+      if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.LEFT) { // SHIFT + CTRL + LMB - link pump to pipe system
         if (this.gameState.linkPumpToReservoir(mx, my)) {
           console.log(`Pipe System ${this.gameState.getSelectedReservoir()} selected for linking future pumps`);
         } else {
@@ -125,10 +134,10 @@ export class CanvasController {
       return;
     }
 
-    if (e.button === 0) { // CTRL + LMB - flood fill
+    if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.LEFT) { // CTRL + LMB - flood fill
       this.gameState.floodFill(mx, my, true);
       this.callbacks.onWaterChanged();
-    } else if (e.button === 2) { // CTRL + RMB - flood empty
+    } else if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.RIGHT) { // CTRL + RMB - flood empty
       this.gameState.floodFill(mx, my, false);
       this.callbacks.onWaterChanged();
     }
@@ -137,14 +146,14 @@ export class CanvasController {
   }
 
   handleShiftInteractions(e, mx, my) {
-    if (e.button === 0) { // SHIFT + LMB - add outlet pump
+    if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.LEFT) { // SHIFT + LMB - add outlet pump
       const selectedId = this.gameState.getSelectedReservoir();
       this.gameState.addPump(mx, my, "outlet", selectedId !== null);
       this.callbacks.onPumpsChanged();
       this.callbacks.updateReservoirControls();
       this.callbacks.draw();
       this.callbacks.updateBasinAnalysis();
-    } else if (e.button === 2) { // SHIFT + RMB - add inlet pump
+    } else if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.RIGHT) { // SHIFT + RMB - add inlet pump
       const selectedId = this.gameState.getSelectedReservoir();
       this.gameState.addPump(mx, my, "inlet", selectedId !== null);
       this.callbacks.onPumpsChanged();
@@ -190,10 +199,10 @@ export class CanvasController {
   }
 
   handleMouseUp(e) {
-    if (e.button === 1 && this.isPanning) { // Middle mouse button
+    if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.MIDDLE && this.isPanning) { // Middle mouse button
       this.isPanning = false;
       this.canvas.style.cursor = INTERACTION_CONFIG.MOUSE.DEFAULT_CURSOR;
-    } else if (e.button === 0 && this.isDrawing) { // Left mouse button
+    } else if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.LEFT && this.isDrawing) { // Left mouse button
       this.isDrawing = false;
       this.commitBrushChanges();
       this.callbacks.draw();
@@ -224,14 +233,14 @@ export class CanvasController {
 
     if (e.shiftKey) {
       // SHIFT + Wheel - change brush size
-      const delta = e.deltaY > 0 ? -1 : 1;
+      const delta = e.deltaY > 0 ? INTERACTION_CONFIG.MOUSE.ZOOM.OUT : INTERACTION_CONFIG.MOUSE.ZOOM.IN;
       this.brushSize = validateBrushSize(this.brushSize + delta);
       console.log(`Brush size: ${this.brushSize}`);
       this.callbacks.updateInsights();
       this.callbacks.draw();
     } else if (e.altKey) {
       // ALT + Wheel - change selected depth
-      const delta = e.deltaY > 0 ? -1 : 1;
+      const delta = e.deltaY > 0 ? INTERACTION_CONFIG.MOUSE.ZOOM.OUT : INTERACTION_CONFIG.MOUSE.ZOOM.IN;
       this.callbacks.setSelectedDepth(this.selectedDepth + delta);
     } else {
       // Normal zoom
@@ -247,14 +256,17 @@ export class CanvasController {
   // Brush management methods
   getBrushTiles(centerX, centerY) {
     const tiles = [];
-    const radius = Math.floor(this.brushSize / 2);
+    const radius = Math.floor(this.brushSize / INTERACTION_CONFIG.COORDINATES.BRUSH_RADIUS_DIVISOR);
 
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dy = -radius; dy <= radius; dy++) {
         const x = centerX + dx;
         const y = centerY + dy;
 
-        if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
+        if (x >= INTERACTION_CONFIG.COORDINATES.MIN_BOUNDARY && 
+            y >= INTERACTION_CONFIG.COORDINATES.MIN_BOUNDARY && 
+            x < CONFIG.WORLD_W && 
+            y < CONFIG.WORLD_H) {
           const distance = Math.sqrt(dx * dx + dy * dy);
           if (distance <= radius) {
             tiles.push({ x, y });
@@ -277,7 +289,7 @@ export class CanvasController {
   }
 
   commitBrushChanges() {
-    if (this.brushOverlay.size === 0) return;
+    if (this.brushOverlay.size === INTERACTION_CONFIG.COORDINATES.EMPTY_SIZE) return;
 
     // Apply all changes at once
     for (const [key, depth] of this.brushOverlay) {
@@ -296,7 +308,10 @@ export class CanvasController {
   }
 
   getTileInfo(x, y) {
-    if (x < 0 || y < 0 || x >= CONFIG.WORLD_W || y >= CONFIG.WORLD_H) {
+    if (x < INTERACTION_CONFIG.COORDINATES.MIN_BOUNDARY || 
+        y < INTERACTION_CONFIG.COORDINATES.MIN_BOUNDARY || 
+        x >= CONFIG.WORLD_W || 
+        y >= CONFIG.WORLD_H) {
       return null;
     }
 

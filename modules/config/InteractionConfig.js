@@ -1,8 +1,21 @@
 // Configuration for user interaction behaviors and controls
 
 export const INTERACTION_CONFIG = {
-  // Mouse and touch interaction settings
+  // Mouse interaction settings
   MOUSE: {
+    // Mouse button constants for cleaner event handling
+    BUTTONS: {
+      LEFT: 0,     // Primary button (usually left)
+      MIDDLE: 1,   // Auxiliary button (usually wheel or middle)
+      RIGHT: 2     // Secondary button (usually right)
+    },
+    
+    // Zoom direction constants
+    ZOOM: {
+      IN: 1,       // Zoom in direction
+      OUT: -1      // Zoom out direction
+    },
+    
     // Zoom behavior
     ZOOM_FACTOR_IN: 1.1,
     ZOOM_FACTOR_OUT: 0.9,
@@ -10,6 +23,13 @@ export const INTERACTION_CONFIG = {
     // Panning settings
     PAN_CURSOR: "grabbing",
     DEFAULT_CURSOR: "default",
+  },
+
+  // Coordinate boundary constants
+  COORDINATES: {
+    MIN_BOUNDARY: 0,    // Minimum valid coordinate
+    BRUSH_RADIUS_DIVISOR: 2,  // Divisor for calculating brush radius
+    EMPTY_SIZE: 0       // Empty/no size indicator
   },
 
   // Brush painting settings

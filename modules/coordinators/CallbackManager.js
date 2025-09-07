@@ -32,13 +32,13 @@ export class CallbackManager {
       onLabelsToggled: () => renderer.onLabelsToggled(),
       updateBasinAnalysis: updateBasinAnalysis,
       updateReservoirControls: updateReservoirControls,
-      draw: () => this.renderingCoordinator.draw(this.canvasController),
+      draw: () => this.renderingCoordinator.draw(),
       setSelectedDepth: (depth) => {
         const actualDepth = this.renderingCoordinator.setSelectedDepth(depth);
         return actualDepth;
       },
       updateInsights: (tileInfo) => 
-        this.renderingCoordinator.updateInsightsDisplay(this.canvasController, tileInfo),
+        this.renderingCoordinator.updateInsightsDisplay(tileInfo),
       onGameStateChanged: onGameStateChanged
     };
   }
@@ -94,7 +94,7 @@ export class CallbackManager {
       updateControls: updateReservoirControls,
       updateDisplays: updateBasinAnalysis,
       clearSelection: clearReservoirSelection,
-      draw: () => this.renderingCoordinator.draw(this.canvasController),
+      draw: () => this.renderingCoordinator.draw(),
     };
   }
 

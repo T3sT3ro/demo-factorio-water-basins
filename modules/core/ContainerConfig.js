@@ -21,6 +21,12 @@ export class ContainerConfig {
 
     // Canvas setup
     container.bind('CanvasSetup').to(() => modules.config.setupCanvas());
+    
+    // Extract canvas from CanvasSetup for controllers
+    container.bind('Canvas').to(() => {
+      const setup = modules.config.setupCanvas();
+      return setup.canvas;
+    });
 
     // Game state and managers
     container.bind('GameState').to(modules.game.GameState).asSingleton();
@@ -28,20 +34,29 @@ export class ContainerConfig {
       .withDependencies('GameState', 'EventBus').asSingleton();
 
     // Rendering system
-    container.bind('Renderer').to(modules.renderer.Renderer)
-      .withDependencies('CanvasSetup').asSingleton();
+    container.bind('Renderer').to(() => {
+      const setup = modules.config.setupCanvas();
+      return new modules.renderer.Renderer(setup.canvas, setup.ctx);
+    }).asSingleton();
     container.bindConstant('LegendRenderer', modules.renderer.LegendRenderer);
 
     // UI components
     container.bind('UISettings').to(modules.ui.UISettings).asSingleton();
     container.bind('NoiseControlUI').to(modules.ui.NoiseControlUI)
       .withDependencies('GameState', 'EventBus').asSingleton();
-    container.bind('DebugDisplay').to(modules.ui.DebugDisplay)
-      .withDependencies('GameState', 'EventBus').asSingleton();
+    container.bind('DebugDisplay').to(() => {
+      const gameState = container.resolve('GameState');
+      const callbacks = {}; // Empty callbacks for now, will be set by Application
+      return new modules.ui.DebugDisplay(
+        gameState.getBasinManager(),
+        gameState,
+        callbacks
+      );
+    }).asSingleton();
 
     // Controllers
     container.bind('CanvasController').to(modules.controllers.CanvasController)
-      .withDependencies('EventBus', 'GameState', 'Renderer', 'UI_CONSTANTS').asSingleton();
+      .withDependencies('Canvas', 'GameState', 'Renderer', 'UI_CONSTANTS').asSingleton();
     container.bind('UIController').to(modules.controllers.UIController)
       .withDependencies('EventBus', 'GameState', 'Renderer').asSingleton();
     container.bind('KeyboardController').to(modules.controllers.KeyboardController)
@@ -49,7 +64,7 @@ export class ContainerConfig {
 
     // Coordinators
     container.bind('RenderingCoordinator').to(modules.coordinators.RenderingCoordinator)
-      .withDependencies('Renderer', 'GameState', 'UISettings', 'LegendRenderer', 'CONFIG').asSingleton();
+      .withDependencies('Renderer', 'GameState', 'UISettings', 'LegendRenderer', 'CONFIG', 'CanvasController').asSingleton();
     container.bind('CallbackManager').to(modules.coordinators.CallbackManager)
       .withDependencies('RenderingCoordinator', 'DebugDisplay', 'UISettings').asSingleton();
     container.bind('InitializationCoordinator').to(modules.coordinators.InitializationCoordinator)
@@ -92,9 +107,10 @@ export class ModuleLoader {
       import(`../coordinators/CallbackManager.js?v=${this.moduleVersion}`),
       import(`../coordinators/InitializationCoordinator.js?v=${this.moduleVersion}`),
       import(`../coordinators/DebugManager.js?v=${this.moduleVersion}`),
+      import(`./Application.js?v=${this.moduleVersion}`),
     ]);
 
-    return {
+    const result = {
       config: modules[0],
       game: modules[1],
       renderer: modules[2],
@@ -111,7 +127,12 @@ export class ModuleLoader {
         CallbackManager: modules[10].CallbackManager,
         InitializationCoordinator: modules[11].InitializationCoordinator,
         DebugManager: modules[12].DebugManager,
+      },
+      app: {
+        TilemapWaterPumpingApp: modules[13].Application,
       }
     };
+
+    return result;
   }
 }

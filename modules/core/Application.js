@@ -45,26 +45,26 @@ export class Application {
     // Terrain changes
     this.eventBus.on('terrain.changed', () => {
       this.renderer.onTerrainChanged();
-      this.renderingCoordinator.draw(this.canvasController);
+      this.renderingCoordinator.draw();
       this.eventBus.emit('analysis.update');
     });
 
     // Water changes
     this.eventBus.on('water.changed', () => {
       this.renderer.onWaterChanged();
-      this.renderingCoordinator.draw(this.canvasController);
+      this.renderingCoordinator.draw();
     });
 
     // Pump changes
     this.eventBus.on('pumps.changed', () => {
       this.renderer.onPumpsChanged();
-      this.renderingCoordinator.draw(this.canvasController);
+      this.renderingCoordinator.draw();
     });
 
     // Labels toggle
     this.eventBus.on('labels.toggled', () => {
       this.renderer.onLabelsToggled();
-      this.renderingCoordinator.draw(this.canvasController);
+      this.renderingCoordinator.draw();
     });
 
     // Basin analysis update
@@ -79,12 +79,12 @@ export class Application {
 
     // Insights update
     this.eventBus.on('insights.update', (data) => {
-      this.renderingCoordinator.updateInsightsDisplay(this.canvasController, data?.tileInfo);
+      this.renderingCoordinator.updateInsightsDisplay(data?.tileInfo);
     });
 
     // Rendering requests
     this.eventBus.on('render.request', () => {
-      this.renderingCoordinator.draw(this.canvasController);
+      this.renderingCoordinator.draw();
     });
 
     // Depth selection
@@ -109,10 +109,7 @@ export class Application {
    */
   init() {
     try {
-      // Initialize canvas and rendering
-      this.initializationCoordinator.initializeCanvas();
-      
-      // Initialize game state
+      // Initialize game state (canvas is already setup through DI)
       this.gameState.performInitialBasinComputation();
       
       // Setup controllers with event bus
@@ -145,6 +142,19 @@ export class Application {
    * Setup controllers with event bus communication
    */
   setupControllers() {
+    // Setup CanvasController callbacks
+    this.canvasController.setCallbacks({
+      updateInsights: (tileInfo) => this.renderingCoordinator.updateInsightsDisplay(tileInfo),
+      draw: () => this.renderingCoordinator.draw(),
+      setSelectedDepth: (depth) => this.renderingCoordinator.setSelectedDepth(depth),
+      onTerrainChanged: () => this.eventBus.emit('terrain.changed'),
+      onWaterChanged: () => this.eventBus.emit('water.changed'),
+      onPumpsChanged: () => this.eventBus.emit('pumps.changed'),
+      onLabelsToggled: () => this.eventBus.emit('labels.toggled'),
+      updateBasinAnalysis: () => this.eventBus.emit('analysis.update'),
+      updateReservoirControls: () => this.eventBus.emit('controls.update'),
+    });
+    
     // Setup event handlers
     this.canvasController.setupEventHandlers();
     this.uiController.setupEventHandlers();

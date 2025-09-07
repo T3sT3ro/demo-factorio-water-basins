@@ -17,16 +17,19 @@ export class DIContainer {
     const binding = {
       to: (constructor) => {
         this.bindings.set(name, { constructor, dependencies: [] });
-        return {
+        
+        const bindingChain = {
           withDependencies: (...deps) => {
             this.bindings.get(name).dependencies = deps;
-            return this;
+            return bindingChain;
           },
           asSingleton: () => {
             this.singletons.add(name);
             return this;
           }
         };
+        
+        return bindingChain;
       }
     };
     return binding;
@@ -64,11 +67,26 @@ export class DIContainer {
       throw new Error(`No binding found for: ${name}`);
     }
 
+    if (typeof binding.constructor !== 'function') {
+      throw new Error(`Binding for '${name}' does not have a valid constructor function. Got: ${typeof binding.constructor}`);
+    }
+
     // Resolve dependencies recursively
     const resolvedDependencies = binding.dependencies.map(dep => this.resolve(dep));
 
-    // Create instance
-    const instance = new binding.constructor(...resolvedDependencies);
+    // Create instance - handle both constructors and factory functions
+    let instance;
+    try {
+      // Try as constructor first
+      instance = new binding.constructor(...resolvedDependencies);
+    } catch (error) {
+      // If it fails, try as factory function
+      if (error.message.includes('is not a constructor')) {
+        instance = binding.constructor(...resolvedDependencies);
+      } else {
+        throw error;
+      }
+    }
 
     // Store singleton instances
     if (this.singletons.has(name)) {

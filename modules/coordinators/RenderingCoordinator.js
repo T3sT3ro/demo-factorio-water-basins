@@ -8,26 +8,27 @@
  * - Manage legend updates
  */
 export class RenderingCoordinator {
-  constructor(renderer, gameState, uiSettings, LegendRenderer, CONFIG) {
+  constructor(renderer, gameState, uiSettings, LegendRenderer, CONFIG, canvasController) {
     this.renderer = renderer;
     this.gameState = gameState;
     this.uiSettings = uiSettings;
     this.LegendRenderer = LegendRenderer;
     this.CONFIG = CONFIG;
+    this.canvasController = canvasController;
     this.selectedDepth = 0;
   }
 
   /**
    * Main rendering method using optimized layered rendering
    */
-  draw(canvasController) {
+  draw() {
     this.renderer.renderOptimized(
       this.gameState,
       this.uiSettings,
       this.gameState.getSelectedReservoir(),
-      canvasController.getBrushOverlay(),
-      canvasController.getBrushCenter(),
-      canvasController.getBrushSize(),
+      this.canvasController.getBrushOverlay(),
+      this.canvasController.getBrushCenter(),
+      this.canvasController.getBrushSize(),
       this.selectedDepth,
       null, // Debug state no longer passed
     );
@@ -130,7 +131,7 @@ export class RenderingCoordinator {
   /**
    * Update insights display (zoom, brush, tile, basin info)
    */
-  updateInsightsDisplay(canvasController, tileInfo = null) {
+  updateInsightsDisplay(tileInfo = null) {
     // Update zoom value
     const zoomValue = document.getElementById("zoomValue");
     if (zoomValue) {
@@ -141,7 +142,7 @@ export class RenderingCoordinator {
     // Update brush size
     const brushValue = document.getElementById("brushValue");
     if (brushValue) {
-      brushValue.textContent = canvasController.getBrushSize();
+      brushValue.textContent = this.canvasController.getBrushSize();
     }
 
     // Update tile info
