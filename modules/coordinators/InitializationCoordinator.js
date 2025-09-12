@@ -12,7 +12,6 @@ export class InitializationCoordinator {
     CONFIG,
     GameState,
     Renderer,
-    LegendRenderer,
     UISettings,
     NoiseControlUI,
     DebugDisplay,
@@ -26,7 +25,6 @@ export class InitializationCoordinator {
     this.CONFIG = CONFIG;
     this.GameState = GameState;
     this.Renderer = Renderer;
-    this.LegendRenderer = LegendRenderer;
     this.UISettings = UISettings;
     this.NoiseControlUI = NoiseControlUI;
     this.DebugDisplay = DebugDisplay;
@@ -59,12 +57,13 @@ export class InitializationCoordinator {
   /**
    * Initialize UI components
    */
-  initializeUIComponents(gameState, onNoiseSettingsChanged) {
+  initializeUIComponents(gameState, onLiveNoiseUpdate, onFinalNoiseUpdate) {
     const uiSettings = new this.UISettings();
     
     const noiseControlUI = new this.NoiseControlUI(
       gameState.getHeightGenerator().getNoiseSettings(),
-      onNoiseSettingsChanged,
+      onLiveNoiseUpdate,
+      onFinalNoiseUpdate,
     );
 
     return { uiSettings, noiseControlUI };
@@ -121,8 +120,7 @@ export class InitializationCoordinator {
     noiseControlUI.setupMainNoiseControls();
     noiseControlUI.createOctaveControls();
 
-    // Create legend with selected depth highlight
-    this.LegendRenderer.createLegend();
+    // Legend is now auto-initialized in the Renderer constructor
     renderingCoordinator.updateLegendSelection();
   }
 

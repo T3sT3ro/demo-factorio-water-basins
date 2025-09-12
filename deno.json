@@ -1,11 +1,13 @@
 {
   "tasks": {
-    "dev": "deno run --allow-net --allow-read server.js",
-    "debug": "deno run --allow-net --allow-read --inspect server.js --debug",
-    "serve": "deno run --allow-net --allow-read server.js",
+    "dev": "deno run -A npm:vite",
+    "build": "deno run -A npm:vite build",
+    "preview": "deno run -A npm:vite preview",
+    "serve": "deno run -A npm:vite",
     "fmt": "deno fmt",
     "lint": "deno lint",
-    "check": "deno check **/*.js"
+    "check": "deno check **/*.ts **/*.js",
+    "type-check": "deno check --no-emit **/*.ts"
   },
   "imports": {
     "@std/http": "jsr:@std/http@^1.0.0",
@@ -23,5 +25,18 @@
     "semiColons": true,
     "singleQuote": false,
     "proseWrap": "preserve"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "checkJs": true,
+    "lib": [
+      "deno.window",
+      "dom"
+    ]
   }
 }

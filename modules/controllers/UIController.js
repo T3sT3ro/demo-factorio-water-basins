@@ -1,29 +1,14 @@
 // UI controller for buttons, forms, and control elements
 import { INTERACTION_CONFIG, validateReservoirId } from "../config/InteractionConfig.js";
 export class UIController {
-  constructor(gameState, renderer) {
+  constructor(gameState, renderer, eventBus) {
     this.gameState = gameState;
     this.renderer = renderer;
+    this.eventBus = eventBus;
     
     // Control state
     this.tickTimer = null;
     this.tickInterval = null;
-    
-    // Callbacks for communication with main app
-    this.callbacks = {};
-  }
-
-  setCallbacks(callbacks) {
-    this.callbacks = {
-      onTerrainChanged: callbacks.onTerrainChanged || (() => {}),
-      onWaterChanged: callbacks.onWaterChanged || (() => {}),
-      onPumpsChanged: callbacks.onPumpsChanged || (() => {}),
-      onLabelsToggled: callbacks.onLabelsToggled || (() => {}),
-      updateBasinAnalysis: callbacks.updateBasinAnalysis || (() => {}),
-      updateReservoirControls: callbacks.updateReservoirControls || (() => {}),
-      draw: callbacks.draw || (() => {}),
-      onGameStateChanged: callbacks.onGameStateChanged || (() => {})
-    };
   }
 
   setupEventHandlers() {
@@ -39,17 +24,17 @@ export class UIController {
 
     tickBtn.onmousedown = () => {
       this.gameState.tick();
-      this.callbacks.onWaterChanged();
-      this.callbacks.draw();
-      this.callbacks.updateBasinAnalysis();
+      this.eventBus.emit('water.changed');
+      this.eventBus.emit('render.request');
+      this.eventBus.emit('analysis.update');
 
       // Start timer for continuous ticking after a delay
       this.tickTimer = setTimeout(() => {
         this.tickInterval = setInterval(() => {
           this.gameState.tick();
-          this.callbacks.onWaterChanged();
-          this.callbacks.draw();
-          this.callbacks.updateBasinAnalysis();
+          this.eventBus.emit('water.changed');
+          this.eventBus.emit('render.request');
+          this.eventBus.emit('analysis.update');
         }, INTERACTION_CONFIG.TIMING.TICK_CONTINUOUS_INTERVAL_MS);
       }, INTERACTION_CONFIG.TIMING.TICK_HOLD_DELAY_MS);
     };
@@ -75,11 +60,11 @@ export class UIController {
     if (randomizeBtn) {
       randomizeBtn.onclick = () => {
         this.gameState.randomizeHeights();
-        this.callbacks.onTerrainChanged();
-        this.callbacks.onWaterChanged();
-        this.callbacks.onLabelsToggled();
-        this.callbacks.draw();
-        this.callbacks.updateBasinAnalysis();
+        this.eventBus.emit('terrain.changed');
+        this.eventBus.emit('water.changed');
+        this.eventBus.emit('labels.toggled');
+        this.eventBus.emit('render.request');
+        this.eventBus.emit('analysis.update');
       };
     }
 
@@ -88,10 +73,10 @@ export class UIController {
     if (clearPumpsBtn) {
       clearPumpsBtn.onclick = () => {
         this.gameState.clearPumps();
-        this.callbacks.onPumpsChanged();
-        this.callbacks.updateReservoirControls();
-        this.callbacks.draw();
-        this.callbacks.updateBasinAnalysis();
+        this.eventBus.emit('pumps.changed');
+        this.eventBus.emit('reservoir.controls.update');
+        this.eventBus.emit('render.request');
+        this.eventBus.emit('analysis.update');
       };
     }
 
@@ -100,9 +85,9 @@ export class UIController {
     if (clearWaterBtn) {
       clearWaterBtn.onclick = () => {
         this.gameState.clearAllWater();
-        this.callbacks.onWaterChanged();
-        this.callbacks.draw();
-        this.callbacks.updateBasinAnalysis();
+        this.eventBus.emit('water.changed');
+        this.eventBus.emit('render.request');
+        this.eventBus.emit('analysis.update');
       };
     }
 
@@ -116,8 +101,8 @@ export class UIController {
     if (showDepthLabelsEl) {
       showDepthLabelsEl.onchange = () => {
         this.uiSettings.toggleDepthLabels();
-        this.callbacks.onLabelsToggled();
-        this.callbacks.draw();
+        this.eventBus.emit('labels.toggled');
+        this.eventBus.emit('render.request');
       };
     }
 
@@ -126,8 +111,8 @@ export class UIController {
     if (showPumpLabelsEl) {
       showPumpLabelsEl.onchange = () => {
         this.uiSettings.togglePumpLabels();
-        this.callbacks.onLabelsToggled();
-        this.callbacks.draw();
+        this.eventBus.emit('labels.toggled');
+        this.eventBus.emit('render.request');
       };
     }
 
@@ -136,8 +121,8 @@ export class UIController {
     if (showBasinLabelsEl) {
       showBasinLabelsEl.onchange = () => {
         this.uiSettings.toggleBasinLabels();
-        this.callbacks.onLabelsToggled();
-        this.callbacks.draw();
+        this.eventBus.emit('labels.toggled');
+        this.eventBus.emit('render.request');
       };
     }
   }
@@ -149,8 +134,8 @@ export class UIController {
       reservoirInputEl.oninput = () => {
         const desiredId = this.getDesiredReservoirIdFromInput();
         this.gameState.setSelectedReservoir(desiredId);
-        this.callbacks.onPumpsChanged();
-        this.callbacks.draw();
+        this.eventBus.emit('pumps.changed');
+        this.eventBus.emit('render.request');
       };
     }
   }
@@ -185,8 +170,8 @@ export class UIController {
   clearReservoirSelection() {
     console.log("Clearing reservoir selection");
     this.gameState.setSelectedReservoir(null);
-    this.callbacks.onPumpsChanged();
-    this.callbacks.draw();
+    this.eventBus.emit('pumps.changed');
+    this.eventBus.emit('render.request');
   }
 
   // Cleanup

@@ -2,7 +2,38 @@
 
 import { CONFIG } from "./config.js";
 
+/**
+ * @typedef {Object} Basin
+ * @property {number} volume - Volume of water in the basin
+ * @property {number} level - Water level in the basin
+ * @property {number} height - Height of the basin floor
+ * @property {Array<{x: number, y: number, height: number}>} outlets - Outlet points for water flow
+ * @property {number|null} parent - Parent basin ID for hierarchical basins
+ * @property {number} tileCount - Number of tiles in this basin
+ */
+
+/**
+ * @typedef {Object} BasinComputeOptions
+ * @property {boolean} [forceRecompute] - Force full recomputation even if heights unchanged
+ * @property {boolean} [skipOptimization] - Skip optimization checks
+ */
+
 export class BasinManager {
+  /** @type {Map<number, Basin>} */
+  basins;
+  
+  /** @type {number[][]} */
+  basinIdOf;
+  
+  /** @type {number} */
+  nextBasinId;
+  
+  /** @type {number|null} */
+  highlightedBasin;
+  
+  /** @type {number[][]|null} */
+  lastHeights;
+
   constructor() {
     this.basins = new Map(); // id -> {volume, level, height, outlets, parent, tileCount}
     this.basinIdOf = new Array(CONFIG.WORLD_H);
@@ -16,7 +47,11 @@ export class BasinManager {
     this.lastHeights = null;
   }
 
-  // Get all tiles that belong to a specific basin
+  /**
+   * Get all tiles that belong to a specific basin
+   * @param {number} basinId - The basin ID to get tiles for
+   * @returns {string[]} Array of tile coordinates as "x,y" strings
+   */
   getBasinTiles(basinId) {
     const tiles = [];
     for (let y = 0; y < CONFIG.WORLD_H; y++) {
@@ -29,13 +64,21 @@ export class BasinManager {
     return tiles;
   }
 
-  // Get tile count for a specific basin
+  /**
+   * Get tile count for a specific basin
+   * @param {number} basinId - The basin ID
+   * @returns {number} Number of tiles in the basin
+   */
   getBasinTileCount(basinId) {
     const basin = this.basins.get(basinId);
     return basin ? basin.tileCount : 0;
   }
 
-  // Update tile count for a basin (called during basin creation)
+  /**
+   * Update tile count for a basin (called during basin creation)
+   * @param {number} basinId - The basin ID
+   * @param {number} count - The new tile count
+   */
   updateBasinTileCount(basinId, count) {
     const basin = this.basins.get(basinId);
     if (basin) {
@@ -43,6 +86,12 @@ export class BasinManager {
     }
   }
 
+  /**
+   * Compute basins from height map
+   * @param {number[][]} heights - 2D array of height values
+   * @param {BasinComputeOptions} _options - Computation options
+   * @returns {void}
+   */
   computeBasins(heights, _options = {}) {
     console.log('BasinManager.computeBasins called');
 

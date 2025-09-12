@@ -28,7 +28,7 @@ export const CONFIG = {
 
 // Canvas configuration
 export function setupCanvas() {
-  const canvas = document.getElementById("canvas");
+  const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("canvas"));
   if (!canvas) {
     throw new Error("Canvas element not found");
   }

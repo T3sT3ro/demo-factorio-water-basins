@@ -1,4 +1,4 @@
-This is a **canvas-based water simulation** using vanilla ES6 modules. It is a prototype app used by a single user. There are no tests and no need for staying consistent with legacy code EXCPT for the save system, which should be able to handle older save files.
+This is a **canvas-based water simulation** using vanilla ES6 modules with clean architecture. It is a prototype app used by a single user. There are no tests and no need for staying consistent with legacy code EXCEPT for the save system, which should be able to handle older save files.
 
 - You should follow DRY and SOLID principles when creating the code.
 - You should use typescript in JSDoc comments.

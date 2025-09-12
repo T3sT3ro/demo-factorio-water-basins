@@ -1,10 +1,13 @@
-// Save/Load UI management
+// UI Controller for save/load operations - separated from data logic
+export class SaveLoadUIController {
+  constructor(saveService, importExportService) {
+    this.saveService = saveService;
+    this.importExportService = importExportService;
+    this.onStateChanged = null;
+  }
 
-export class SaveLoadManager {
-  constructor(gameState, onStateChanged) {
-    this.gameState = gameState;
-    this.onStateChanged = onStateChanged;
-    this.setupEventHandlers();
+  setStateChangeCallback(callback) {
+    this.onStateChanged = callback;
   }
 
   setupEventHandlers() {
@@ -65,10 +68,10 @@ export class SaveLoadManager {
     }
   }
 
-  showLoadModal() {
+  async showLoadModal() {
     const modal = document.getElementById("loadModal");
     if (modal) {
-      this.populateSavedMapsList();
+      await this.populateSavedMapsList();
       modal.showModal();
     }
   }
@@ -89,40 +92,54 @@ export class SaveLoadManager {
     }
   }
 
-  populateSavedMapsList() {
+  async populateSavedMapsList() {
     const container = document.getElementById("savedMaps");
     if (!container) return;
 
-    const saves = this.getSavedMaps();
+    try {
+      const saves = await this.saveService.list();
 
-    if (saves.length === 0) {
-      container.innerHTML = '<p class="no-saves">No saved maps found</p>';
-      return;
+      if (saves.length === 0) {
+        container.innerHTML = '<p class="no-saves">No saved maps found</p>';
+        return;
+      }
+
+      container.innerHTML = saves.map((save) => `
+        <div class="saved-map-item">
+          <div class="saved-map-info">
+            <div class="saved-map-name">${this.escapeHtml(save.name)}</div>
+            <div class="saved-map-date">${new Date(save.timestamp).toLocaleString()}</div>
+          </div>
+          <div class="saved-map-actions">
+            <button onclick="globalThis.saveLoadUI.loadFromBrowser('${this.escapeHtml(save.id)}')">Load</button>
+            <button class="delete-btn" onclick="globalThis.saveLoadUI.deleteFromBrowser('${this.escapeHtml(save.id)}')">Delete</button>
+          </div>
+        </div>
+      `).join("");
+    } catch (error) {
+      container.innerHTML = `<p class="error">Failed to load saved maps: ${error.message}</p>`;
     }
-
-    container.innerHTML = saves.map((save) => `
-      <div class="saved-map-item">
-        <div class="saved-map-info">
-          <div class="saved-map-name">${this.escapeHtml(save.name)}</div>
-          <div class="saved-map-date">${new Date(save.timestamp).toLocaleString()}</div>
-        </div>
-        <div class="saved-map-actions">
-          <button onclick="window.saveLoadManager.loadFromBrowser('${
-      this.escapeHtml(save.key)
-    }')">Load</button>
-          <button class="delete-btn" onclick="window.saveLoadManager.deleteFromBrowser('${
-      this.escapeHtml(save.key)
-    }')">Delete</button>
-        </div>
-      </div>
-    `).join("");
   }
 
-  generateExportJson() {
+  updateExportData() {
+    const heightSelect = document.getElementById("heightEncoding");
+    const basinSelect = document.getElementById("basinEncoding");
+
+    if (!heightSelect || !basinSelect) return;
+
+    const options = {
+      heightEncoding: heightSelect.value,
+      basinEncoding: basinSelect.value
+    };
+
+    // Update size information
+    this.updateSizeInfo(options);
+
+    // Update the JSON output
     const output = document.getElementById("exportJsonOutput");
-    if (output) {
+    if (output && this.gameState) {
       try {
-        const jsonData = this.gameState.exportToJSON();
+        const jsonData = this.importExportService.export(this.gameState, options);
         output.value = jsonData;
       } catch (error) {
         output.value = `Error generating export data: ${error.message}`;
@@ -132,8 +149,10 @@ export class SaveLoadManager {
   }
 
   setupOptimalDefaults() {
+    if (!this.gameState) return;
+
     try {
-      const bestOptions = this.gameState.getBestEncodingOptions();
+      const bestOptions = this.importExportService.getBestEncodingOptions(this.gameState);
 
       const heightSelect = document.getElementById("heightEncoding");
       const basinSelect = document.getElementById("basinEncoding");
@@ -150,65 +169,25 @@ export class SaveLoadManager {
     }
   }
 
-  updateExportData() {
-    const heightSelect = document.getElementById("heightEncoding");
-    const basinSelect = document.getElementById("basinEncoding");
+  updateSizeInfo(options) {
+    if (!this.gameState) return;
 
-    if (!heightSelect || !basinSelect) return;
-
-    const heightEncoding = heightSelect.value;
-    const basinEncoding = basinSelect.value;
-
-    // Update size information
-    this.updateSizeInfo(heightEncoding, basinEncoding);
-
-    // Update the JSON output
-    const options = {
-      heightEncoding: heightEncoding,
-      basinEncoding: basinEncoding,
-    };
-
-    const output = document.getElementById("exportJsonOutput");
-    if (output) {
-      try {
-        const jsonData = this.gameState.exportToJSON(options);
-        output.value = jsonData;
-      } catch (error) {
-        output.value = `Error generating export data: ${error.message}`;
-        console.error("Export error:", error);
-      }
-    }
-  }
-
-  updateSizeInfo(heightEncoding, basinEncoding) {
     const heightSizeInfo = document.getElementById("heightSizeInfo");
     const basinSizeInfo = document.getElementById("basinSizeInfo");
     const totalSizeInfo = document.getElementById("totalSizeInfo");
 
     try {
-      // Calculate individual sizes
-      const heightCompressed = this.gameState.compressHeights(heightEncoding);
-      const basinCompressed = this.gameState.compressBasins(basinEncoding);
+      const stats = this.importExportService.calculateCompressionStats(this.gameState, options);
+      const totalJson = this.importExportService.export(this.gameState, options);
 
-      const heightSize = JSON.stringify(heightCompressed).length;
-      const basinSize = JSON.stringify(basinCompressed).length;
-
-      // Calculate total JSON size
-      const options = {
-        heightEncoding: heightEncoding,
-        basinEncoding: basinEncoding,
-      };
-      const totalSize = this.gameState.exportToJSON(options).length;
-
-      // Update displays
       if (heightSizeInfo) {
-        heightSizeInfo.textContent = this.formatBytes(heightSize);
+        heightSizeInfo.textContent = this.formatBytes(stats.heights.compressedSize);
       }
       if (basinSizeInfo) {
-        basinSizeInfo.textContent = this.formatBytes(basinSize);
+        basinSizeInfo.textContent = this.formatBytes(stats.basins.compressedSize);
       }
       if (totalSizeInfo) {
-        totalSizeInfo.textContent = this.formatBytes(totalSize);
+        totalSizeInfo.textContent = this.formatBytes(totalJson.length);
       }
     } catch (error) {
       console.error("Error calculating sizes:", error);
@@ -218,15 +197,7 @@ export class SaveLoadManager {
     }
   }
 
-  formatBytes(bytes) {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  }
-
-  loadFromText() {
+  async loadFromText() {
     const textInput = document.getElementById("jsonTextInput");
     if (!textInput || !textInput.value.trim()) {
       alert("Please paste JSON data first.");
@@ -234,8 +205,8 @@ export class SaveLoadManager {
     }
 
     try {
-      this.gameState.importFromJSON(textInput.value);
-      this.onStateChanged();
+      this.importExportService.import(textInput.value, this.gameState);
+      if (this.onStateChanged) this.onStateChanged();
       document.getElementById("loadModal").close();
       textInput.value = "";
       alert("Map loaded successfully!");
@@ -251,8 +222,8 @@ export class SaveLoadManager {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        this.gameState.importFromJSON(e.target.result);
-        this.onStateChanged();
+        this.importExportService.import(e.target.result, this.gameState);
+        if (this.onStateChanged) this.onStateChanged();
         document.getElementById("loadModal").close();
         event.target.value = "";
         alert("Map loaded successfully!");
@@ -263,7 +234,7 @@ export class SaveLoadManager {
     reader.readAsText(file);
   }
 
-  saveToBrowser() {
+  async saveToBrowser() {
     const nameInput = document.getElementById("saveNameInput");
     if (!nameInput || !nameInput.value.trim()) {
       alert("Please enter a save name.");
@@ -271,23 +242,18 @@ export class SaveLoadManager {
     }
 
     const saveName = nameInput.value.trim();
-    const saveKey = `mapSave_${Date.now()}_${saveName}`;
 
     try {
-      const jsonData = this.gameState.exportToJSON();
-      const saveData = {
-        name: saveName,
-        timestamp: new Date().toISOString(),
-        data: jsonData,
-      };
-
-      localStorage.setItem(saveKey, JSON.stringify(saveData));
+      const jsonData = this.importExportService.export(this.gameState);
+      const saveData = new (await import('./SaveData.js')).SaveData(saveName, jsonData);
+      
+      await this.saveService.save(saveData);
       nameInput.value = "";
       alert(`Map saved as "${saveName}"!`);
 
       // Refresh the saved maps list if the load modal is open
       if (document.getElementById("loadModal").open) {
-        this.populateSavedMapsList();
+        await this.populateSavedMapsList();
       }
     } catch (error) {
       alert(`Failed to save map: ${error.message}`);
@@ -295,33 +261,27 @@ export class SaveLoadManager {
     }
   }
 
-  loadFromBrowser(saveKey) {
+  async loadFromBrowser(saveId) {
     try {
-      const saveData = localStorage.getItem(saveKey);
-      if (!saveData) {
-        alert("Save not found.");
-        return;
-      }
-
-      const parsed = JSON.parse(saveData);
-      this.gameState.importFromJSON(parsed.data);
-      this.onStateChanged();
+      const saveData = await this.saveService.load(saveId);
+      this.importExportService.import(saveData.data, this.gameState);
+      if (this.onStateChanged) this.onStateChanged();
       document.getElementById("loadModal").close();
-      alert(`Map "${parsed.name}" loaded successfully!`);
+      alert(`Map "${saveData.name}" loaded successfully!`);
     } catch (error) {
       alert(`Failed to load map: ${error.message}`);
       console.error("Load error:", error);
     }
   }
 
-  deleteFromBrowser(saveKey) {
+  async deleteFromBrowser(saveId) {
     if (!confirm("Are you sure you want to delete this save?")) {
       return;
     }
 
     try {
-      localStorage.removeItem(saveKey);
-      this.populateSavedMapsList();
+      await this.saveService.delete(saveId);
+      await this.populateSavedMapsList();
       alert("Save deleted successfully!");
     } catch (error) {
       alert(`Failed to delete save: ${error.message}`);
@@ -339,7 +299,7 @@ export class SaveLoadManager {
     try {
       document.execCommand("copy");
       alert("JSON data copied to clipboard!");
-    } catch (_error) {
+    } catch {
       // Fallback for modern browsers
       navigator.clipboard.writeText(output.value).then(() => {
         alert("JSON data copied to clipboard!");
@@ -365,32 +325,22 @@ export class SaveLoadManager {
     URL.revokeObjectURL(url);
   }
 
-  getSavedMaps() {
-    const saves = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("mapSave_")) {
-        try {
-          const saveData = JSON.parse(localStorage.getItem(key));
-          saves.push({
-            key: key,
-            name: saveData.name,
-            timestamp: saveData.timestamp,
-          });
-        } catch (_error) {
-          console.warn(`Invalid save data for key ${key}:`, _error);
-        }
-      }
-    }
-
-    // Sort by timestamp, newest first
-    saves.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    return saves;
+  formatBytes(bytes) {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   }
 
   escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // Setter for game state (to be used by Application)
+  setGameState(gameState) {
+    this.gameState = gameState;
   }
 }

@@ -264,14 +264,34 @@ const p = [
 for (let i = 0; i < 256; i++) p[256 + i] = p[i];
 
 // Improved noise utility functions
+
+/**
+ * Smoothstep fade function for noise interpolation
+ * @param {number} t - Input value to fade (0-1)
+ * @returns {number} Smoothed fade value
+ */
 function fade(t) {
   return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
+/**
+ * Linear interpolation between two values
+ * @param {number} t - Interpolation factor (0-1)
+ * @param {number} a - Start value
+ * @param {number} b - End value
+ * @returns {number} Interpolated value
+ */
 function lerp(t, a, b) {
   return a + t * (b - a);
 }
 
+/**
+ * Gradient function for noise computation
+ * @param {number} hash - Hash value for gradient selection
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @returns {number} Gradient value
+ */
 function grad(hash, x, y) {
   const h = hash & 15;
   const u = h < 8 ? x : y;
@@ -279,7 +299,12 @@ function grad(hash, x, y) {
   return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
 }
 
-// 2D Perlin noise function
+/**
+ * 2D Perlin noise function
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @returns {number} Noise value typically in range [-1, 1]
+ */
 export function noise2D(x, y) {
   const X = Math.floor(x) & 255;
   const Y = Math.floor(y) & 255;
@@ -321,19 +346,19 @@ export function simplex2D(x, y) {
   const jj = j & 255;
 
   let n = 0.0;
-  let t0 = 0.5 - x0 * x0 - y0 * y0;
+  const t0 = 0.5 - x0 * x0 - y0 * y0;
   if (t0 >= 0) {
     const gi0 = p[ii + p[jj]] & 7;
     n += t0 * t0 * t0 * t0 * (grad2(gi0, x0, y0));
   }
 
-  let t1 = 0.5 - x1 * x1 - y1 * y1;
+  const t1 = 0.5 - x1 * x1 - y1 * y1;
   if (t1 >= 0) {
     const gi1 = p[ii + i1 + p[jj + j1]] & 7;
     n += t1 * t1 * t1 * t1 * (grad2(gi1, x1, y1));
   }
 
-  let t2 = 0.5 - x2 * x2 - y2 * y2;
+  const t2 = 0.5 - x2 * x2 - y2 * y2;
   if (t2 >= 0) {
     const gi2 = p[ii + 1 + p[jj + 1]] & 7;
     n += t2 * t2 * t2 * t2 * (grad2(gi2, x2, y2));

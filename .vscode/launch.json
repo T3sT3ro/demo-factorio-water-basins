@@ -14,9 +14,9 @@
     },
     {
       "type": "node",
-      "request": "attach",
+      "request": "launch",
       "name": "Attach to Deno",
-      "port": 9229,
+      "attachSimplePort": 9229,
       "restart": true,
       "remoteRoot": "${workspaceFolder}",
       "localRoot": "${workspaceFolder}",

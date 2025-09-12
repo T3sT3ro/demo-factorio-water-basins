@@ -97,13 +97,42 @@ The system automatically detects whether you're running in development (localhos
 ├── modules/           # ES6 modules
 │   ├── config.js      # Configuration and canvas setup
 │   ├── game.js        # Game state and height generation
-│   ├── renderer.js    # Canvas rendering and camera system
 │   ├── basins.js      # Hierarchical basin detection
 │   ├── labels.js      # Smart label positioning
 │   ├── pumps.js       # Water pump simulation
-│   ├── ui.js          # User interface controls
 │   ├── noise.js       # Terrain generation
-│   └── constants.js   # Shared constants
+│   ├── utils.js       # Utility functions
+│   ├── saveload.js    # Save/load functionality
+│   ├── constants.js   # Shared constants
+│   ├── core/          # Core system components
+│   │   ├── Application.js           # Main application orchestrator
+│   │   ├── Camera.js               # Viewport and zoom management
+│   │   ├── ContainerConfig.js      # Dependency injection setup
+│   │   ├── DIContainer.js          # Dependency injection container
+│   │   └── EventBus.js             # Event management system
+│   ├── rendering/     # Modern layered rendering system
+│   │   ├── Renderer.js             # Main renderer (replaces old renderer.js)
+│   │   ├── RenderManager.js        # Layer composition and dirty state
+│   │   ├── RenderUIManager.js      # UI component management
+│   │   ├── LayerRenderer.js        # Base layer renderer class
+│   │   ├── TerrainLayerRenderer.js # Terrain height visualization
+│   │   ├── WaterLayerRenderer.js   # Water basin visualization
+│   │   ├── PumpLayerRenderer.js    # Pump and interactive elements
+│   │   └── ColorManager.js         # Color scheme management
+│   ├── controllers/   # Input and interaction handling
+│   │   ├── CanvasController.js     # Mouse and canvas interactions
+│   │   ├── KeyboardController.js   # Keyboard input handling
+│   │   └── UIController.js         # UI state management
+│   ├── coordinators/  # System coordination
+│   │   ├── InitializationCoordinator.js # System startup
+│   │   ├── RenderingCoordinator.js     # Rendering pipeline
+│   ├── ui/            # User interface components
+│   │   ├── DebugDisplay.js         # Debug information panel
+│   │   ├── Legend.js               # Depth selection legend
+│   │   ├── NoiseControlUI.js       # Terrain generation controls
+│   │   └── UISettings.js           # UI configuration
+│   └── config/        # Configuration modules
+│       └── InteractionConfig.js   # Interaction settings
 └── .vscode/           # VS Code debugging configurations
     ├── launch.json    # Debug launch configurations
     └── tasks.json     # VS Code tasks
@@ -133,3 +162,13 @@ The hierarchical basin system properly handles complex terrain:
 - **Integrated highlighting**: Single-pass terrain and highlight rendering
 - **Efficient lookups**: Spatial indexing for O(1) basin queries
 - **Canvas transforms**: Hardware-accelerated pan/zoom using CSS transforms
+
+## TODO:
+
+- [ ] optimize brush tools to render tile only once when it's added to the set
+- [ ] move to TS for improved typing
+- [ ] organize and debloat all the AI code
+- [ ] remove managers in favor of cleaner architecture with clean responsibilities
+- [ ] Implement an O(n^2) basin flood filling algorithm with 
+- [ ] Use `<template>` for UI components instead of innerHTML
+- [ ] Add debug visualization for basin calculation algorithm. Use generators to return up-to-date state

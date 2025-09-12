@@ -8,14 +8,17 @@
  * - Manage legend updates
  */
 export class RenderingCoordinator {
-  constructor(renderer, gameState, uiSettings, LegendRenderer, CONFIG, canvasController) {
+  constructor(renderer, gameState, uiSettings, CONFIG, canvasController) {
     this.renderer = renderer;
     this.gameState = gameState;
     this.uiSettings = uiSettings;
-    this.LegendRenderer = LegendRenderer;
     this.CONFIG = CONFIG;
     this.canvasController = canvasController;
     this.selectedDepth = 0;
+    
+    // Debouncing for expensive basin computation
+    this.basinComputationTimeout = null;
+    this.basinComputationDelay = 500; // 500ms delay
   }
 
   /**
@@ -35,58 +38,58 @@ export class RenderingCoordinator {
   }
 
   /**
-   * Handle noise settings change with performance monitoring
+   * Handle live noise settings change - only update terrain, no basin computation
    */
-  onNoiseSettingsChanged(noiseControlUI) {
-    performance.mark("noise-settings-change-start");
+  onLiveNoiseUpdate() {
+    performance.mark("live-noise-update-start");
 
-    performance.mark("terrain-regeneration-start");
-    this.gameState.regenerateWithCurrentSettings();
+    // Immediate terrain regeneration for visual feedback
+    this.gameState.regenerateTerrainOnly();
     
-    // Mark layers as dirty after regeneration
+    // Mark only terrain layer as dirty for immediate visual update
     this.renderer.onTerrainChanged();
-    this.renderer.onWaterChanged(); // Water basins change with terrain
-    this.renderer.onLabelsToggled(); // Basin labels also need to be updated
     
-    performance.mark("terrain-regeneration-end");
+    // Draw immediately for live feedback
+    this.draw();
+
+    performance.mark("live-noise-update-end");
     performance.measure(
-      "Terrain Regeneration",
-      "terrain-regeneration-start",
-      "terrain-regeneration-end",
+      "🔥 Live Noise Update (Terrain Only)",
+      "live-noise-update-start",
+      "live-noise-update-end",
     );
+  }
 
-    performance.mark("rendering-start");
-    // Note: Basin analysis update callback will be handled by caller
-    performance.mark("rendering-end");
-    performance.measure("Rendering", "rendering-start", "rendering-end");
+  /**
+   * Handle final noise settings change - full recomputation including basins
+   */
+  onFinalNoiseUpdate() {
+    performance.mark("final-noise-update-start");
 
-    performance.mark("basin-analysis-update-start");
-    // Basin analysis update will be handled by callback
-    performance.mark("basin-analysis-update-end");
+    // Full recomputation including basins
+    this.gameState.recomputeBasins();
+    
+    // Mark all layers as dirty since basins changed
+    this.renderer.onBasinsChanged();
+    
+    // Draw with all updates
+    this.draw();
+
+    performance.mark("final-noise-update-end");
     performance.measure(
-      "Basin Analysis Display Update",
-      "basin-analysis-update-start",
-      "basin-analysis-update-end",
+      "🔥 Final Noise Update (Full Recomputation)",
+      "final-noise-update-start",
+      "final-noise-update-end",
     );
+  }
 
-    performance.mark("noise-settings-change-end");
-    performance.measure(
-      "🔥 Noise Settings Change - Total Time",
-      "noise-settings-change-start",
-      "noise-settings-change-end",
-    );
-
-    // Log the results
-    const measures = performance.getEntriesByType("measure");
-    const recentMeasures = measures.slice(-4); // Get the 4 most recent measures
-    recentMeasures.forEach((measure) => {
-      console.log(`${measure.name}: ${measure.duration.toFixed(2)}ms`);
-    });
-
-    // Update noise control UI to reflect loaded settings
-    if (noiseControlUI) {
-      noiseControlUI.updateUI();
-    }
+  /**
+   * Handle noise settings change with immediate terrain update and debounced basin computation
+   * @deprecated Use onLiveNoiseUpdate and onFinalNoiseUpdate instead
+   */
+  onNoiseSettingsChanged(_noiseControlUI) {
+    // Legacy method - delegate to final update for backward compatibility
+    this.onFinalNoiseUpdate();
   }
 
   /**
@@ -125,7 +128,7 @@ export class RenderingCoordinator {
    * Update legend selection highlight
    */
   updateLegendSelection() {
-    this.LegendRenderer.updateSelectedDepth(this.selectedDepth);
+    this.renderer.legend.setSelectedDepth(this.selectedDepth);
   }
 
   /**
@@ -135,7 +138,7 @@ export class RenderingCoordinator {
     // Update zoom value
     const zoomValue = document.getElementById("zoomValue");
     if (zoomValue) {
-      const zoomPercentage = Math.round(this.renderer.camera.zoom * 100);
+      const zoomPercentage = Math.round(this.renderer.getCamera().getState().zoom * 100);
       zoomValue.textContent = `${zoomPercentage}%`;
     }
 

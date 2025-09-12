@@ -12,11 +12,12 @@ import { INTERACTION_CONFIG, validateDepth, validateBrushSize } from '../config/
  * - Validation of user inputs
  */
 export class CanvasController {
-  constructor(canvas, gameState, renderer, uiConstants) {
+  constructor(canvas, gameState, renderer, UI_CONSTANTS, eventBus) {
     this.canvas = canvas;
     this.gameState = gameState;
     this.renderer = renderer;
-    this.uiConstants = uiConstants;
+    this.UI_CONSTANTS = UI_CONSTANTS;
+    this.eventBus = eventBus;
     
     // Interaction state
     this.isDrawing = false;
@@ -30,22 +31,7 @@ export class CanvasController {
     this.lastPanX = INTERACTION_CONFIG.COORDINATES.ORIGIN;
     this.lastPanY = INTERACTION_CONFIG.COORDINATES.ORIGIN;
     
-    // Callbacks for communication with main app
-    this.callbacks = {};
-  }
-
-  setCallbacks(callbacks) {
-    this.callbacks = {
-      onTerrainChanged: callbacks.onTerrainChanged || (() => {}),
-      onWaterChanged: callbacks.onWaterChanged || (() => {}),
-      onPumpsChanged: callbacks.onPumpsChanged || (() => {}),
-      onLabelsToggled: callbacks.onLabelsToggled || (() => {}),
-      updateInsights: callbacks.updateInsights || (() => {}),
-      updateBasinAnalysis: callbacks.updateBasinAnalysis || (() => {}),
-      updateReservoirControls: callbacks.updateReservoirControls || (() => {}),
-      draw: callbacks.draw || (() => {}),
-      setSelectedDepth: callbacks.setSelectedDepth || (() => {})
-    };
+    // Remove callback system - now using EventBus only
   }
 
   setupEventHandlers() {
@@ -92,7 +78,7 @@ export class CanvasController {
     if (e.altKey && e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.RIGHT) {
       const heights = this.gameState.getHeights();
       const pickedDepth = heights[my][mx];
-      this.callbacks.setSelectedDepth(pickedDepth);
+      this.eventBus.emit('depth.selected', { depth: pickedDepth });
       return;
     }
 
@@ -114,9 +100,9 @@ export class CanvasController {
       this.brushOverlay.clear();
       this.updateBrushOverlay(mx, my);
       this.gameState.setSelectedReservoir(null);
-      this.callbacks.onPumpsChanged();
-      this.callbacks.updateReservoirControls();
-      this.callbacks.draw();
+      this.eventBus.emit('pumps.changed');
+      this.eventBus.emit('reservoir.controls.update');
+      this.eventBus.emit('render.request');
     }
   }
 
@@ -128,38 +114,38 @@ export class CanvasController {
         } else {
           console.log("No pump found at this location to link to");
         }
-        this.callbacks.updateReservoirControls();
-        this.callbacks.draw();
+        this.eventBus.emit('reservoir.controls.update');
+        this.eventBus.emit('render.request');
       }
       return;
     }
 
     if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.LEFT) { // CTRL + LMB - flood fill
       this.gameState.floodFill(mx, my, true);
-      this.callbacks.onWaterChanged();
+      this.eventBus.emit('water.changed');
     } else if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.RIGHT) { // CTRL + RMB - flood empty
       this.gameState.floodFill(mx, my, false);
-      this.callbacks.onWaterChanged();
+      this.eventBus.emit('water.changed');
     }
-    this.callbacks.draw();
-    this.callbacks.updateBasinAnalysis();
+    this.eventBus.emit('render.request');
+    this.eventBus.emit('analysis.update');
   }
 
   handleShiftInteractions(e, mx, my) {
     if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.LEFT) { // SHIFT + LMB - add outlet pump
       const selectedId = this.gameState.getSelectedReservoir();
       this.gameState.addPump(mx, my, "outlet", selectedId !== null);
-      this.callbacks.onPumpsChanged();
-      this.callbacks.updateReservoirControls();
-      this.callbacks.draw();
-      this.callbacks.updateBasinAnalysis();
+      this.eventBus.emit('pumps.changed');
+      this.eventBus.emit('reservoir.controls.update');
+      this.eventBus.emit('render.request');
+      this.eventBus.emit('analysis.update');
     } else if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.RIGHT) { // SHIFT + RMB - add inlet pump
       const selectedId = this.gameState.getSelectedReservoir();
       this.gameState.addPump(mx, my, "inlet", selectedId !== null);
-      this.callbacks.onPumpsChanged();
-      this.callbacks.updateReservoirControls();
-      this.callbacks.draw();
-      this.callbacks.updateBasinAnalysis();
+      this.eventBus.emit('pumps.changed');
+      this.eventBus.emit('reservoir.controls.update');
+      this.eventBus.emit('render.request');
+      this.eventBus.emit('analysis.update');
     }
   }
 
@@ -177,7 +163,7 @@ export class CanvasController {
       this.lastPanX = screenX;
       this.lastPanY = screenY;
 
-      this.callbacks.draw();
+      this.eventBus.emit('render.request');
     } else {
       // Update tile info and brush position
       const worldPos = this.renderer.screenToWorld(screenX, screenY);
@@ -193,8 +179,8 @@ export class CanvasController {
       }
 
       const tileInfo = this.getTileInfo(tileX, tileY);
-      this.callbacks.updateInsights(tileInfo);
-      this.callbacks.draw();
+      this.eventBus.emit('insights.update', { tileInfo });
+      this.eventBus.emit('render.request');
     }
   }
 
@@ -205,7 +191,7 @@ export class CanvasController {
     } else if (e.button === INTERACTION_CONFIG.MOUSE.BUTTONS.LEFT && this.isDrawing) { // Left mouse button
       this.isDrawing = false;
       this.commitBrushChanges();
-      this.callbacks.draw();
+      this.eventBus.emit('render.request');
     }
   }
 
@@ -217,11 +203,11 @@ export class CanvasController {
     if (this.isDrawing) {
       this.isDrawing = false;
       this.commitBrushChanges();
-      this.callbacks.draw();
+      this.eventBus.emit('render.request');
     }
     this.brushCenter = null;
-    this.callbacks.updateInsights();
-    this.callbacks.draw();
+    this.eventBus.emit('insights.update', { tileInfo: null });
+    this.eventBus.emit('render.request');
   }
 
   handleWheel(e) {
@@ -236,20 +222,20 @@ export class CanvasController {
       const delta = e.deltaY > 0 ? INTERACTION_CONFIG.MOUSE.ZOOM.OUT : INTERACTION_CONFIG.MOUSE.ZOOM.IN;
       this.brushSize = validateBrushSize(this.brushSize + delta);
       console.log(`Brush size: ${this.brushSize}`);
-      this.callbacks.updateInsights();
-      this.callbacks.draw();
+      this.eventBus.emit('insights.update', { tileInfo: null });
+      this.eventBus.emit('render.request');
     } else if (e.altKey) {
       // ALT + Wheel - change selected depth
       const delta = e.deltaY > 0 ? INTERACTION_CONFIG.MOUSE.ZOOM.OUT : INTERACTION_CONFIG.MOUSE.ZOOM.IN;
-      this.callbacks.setSelectedDepth(this.selectedDepth + delta);
+      this.eventBus.emit('depth.selected', { depth: this.selectedDepth + delta });
     } else {
       // Normal zoom
       const zoomFactor = e.deltaY > 0 
         ? INTERACTION_CONFIG.MOUSE.ZOOM_FACTOR_OUT 
         : INTERACTION_CONFIG.MOUSE.ZOOM_FACTOR_IN;
       this.renderer.zoomAt(screenX, screenY, zoomFactor);
-      this.callbacks.updateInsights();
-      this.callbacks.draw();
+      this.eventBus.emit('insights.update', { tileInfo: null });
+      this.eventBus.emit('render.request');
     }
   }
 
@@ -301,10 +287,10 @@ export class CanvasController {
 
     // Revalidate and update displays
     this.gameState.revalidateMap();
-    this.callbacks.onTerrainChanged();
-    this.callbacks.onWaterChanged();
-    this.callbacks.onLabelsToggled();
-    this.callbacks.updateBasinAnalysis();
+    this.eventBus.emit('terrain.changed');
+    this.eventBus.emit('water.changed');
+    this.eventBus.emit('labels.toggled');
+    this.eventBus.emit('analysis.update');
   }
 
   getTileInfo(x, y) {

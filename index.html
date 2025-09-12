@@ -6,15 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tilemap Water Pumping</title>
   <link rel="stylesheet" href="https://unpkg.com/open-props">
+  <link rel="stylesheet" href="styles/all.css">
   <script src="https://unpkg.com/tinyqueue@2.0.0/tinyqueue.min.js"></script>
-  <script>
-    // Cache busting for CSS and JS files
-    const cacheBuster = Date.now();
-    document.write(`<link rel="stylesheet" href="styles.css?v=${cacheBuster}">`);
-
-    // Version-based cache busting - increment this when modules change
-    window.moduleVersion = "1.0.2";
-  </script>
 </head>
 
 <body>
@@ -273,15 +266,7 @@
       </div>
     </div>
   </dialog>
-
-  <script>
-    // Cache busting for main JS file using version
-    const version = window.moduleVersion || Date.now();
-    const script = document.createElement("script");
-    script.type = "module";
-    script.src = `app.js?v=${version}`;
-    document.head.appendChild(script);
-  </script>
+  <script type="module" src="app.ts"></script>
 </body>
 
 </html>

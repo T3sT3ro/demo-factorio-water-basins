@@ -168,6 +168,16 @@ export const UI_CONSTANTS = {
 };
 
 // CSS class names for consistent styling
+/**
+ * @typedef {Object} CSSClasses
+ * @property {string} LEGEND_ITEM - CSS class for legend items
+ * @property {string} LEGEND_ITEM_SELECTED - CSS class for selected legend items
+ * @property {string} LEGEND_COLOR - CSS class for legend color boxes
+ * @property {string} CONTROL_ITEM - CSS class for control items
+ * @property {string} CONTROL_BOX - CSS class for control boxes
+ */
+
+/** @type {CSSClasses} */
 export const CSS_CLASSES = {
   LEGEND_ITEM: "legend-item",
   LEGEND_ITEM_SELECTED: "legend-item-selected",

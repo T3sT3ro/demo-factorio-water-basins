@@ -1,5 +1,49 @@
 // Configuration for user interaction behaviors and controls
 
+/**
+ * @typedef {'LEFT'|'MIDDLE'|'RIGHT'} MouseButton
+ * @typedef {1|-1} ZoomDirection
+ * @typedef {'grabbing'|'default'|'pointer'} CursorType
+ */
+
+/**
+ * @typedef {Object} MouseConfig
+ * @property {Object} BUTTONS - Mouse button constants
+ * @property {0} BUTTONS.LEFT - Primary button (usually left)
+ * @property {1} BUTTONS.MIDDLE - Auxiliary button (usually wheel or middle)
+ * @property {2} BUTTONS.RIGHT - Secondary button (usually right)
+ * @property {Object} ZOOM - Zoom direction constants
+ * @property {1} ZOOM.IN - Zoom in direction
+ * @property {-1} ZOOM.OUT - Zoom out direction
+ * @property {number} ZOOM_FACTOR_IN - Zoom in multiplier
+ * @property {number} ZOOM_FACTOR_OUT - Zoom out multiplier
+ * @property {CursorType} PAN_CURSOR - Cursor during panning
+ * @property {CursorType} DEFAULT_CURSOR - Default cursor
+ */
+
+/**
+ * @typedef {Object} CoordinatesConfig
+ * @property {0} MIN_BOUNDARY - Minimum valid coordinate
+ * @property {2} BRUSH_RADIUS_DIVISOR - Divisor for calculating brush radius
+ * @property {0} EMPTY_SIZE - Empty/no size indicator
+ */
+
+/**
+ * @typedef {Object} BrushConfig
+ * @property {1} MIN_SIZE - Minimum brush size
+ * @property {16} MAX_SIZE - Maximum brush size
+ * @property {3} DEFAULT_SIZE - Default brush size
+ * @property {'circular'} SHAPE - Brush shape
+ */
+
+/**
+ * @typedef {Object} InteractionConfiguration
+ * @property {MouseConfig} MOUSE - Mouse interaction settings
+ * @property {CoordinatesConfig} COORDINATES - Coordinate boundary constants
+ * @property {BrushConfig} BRUSH - Brush painting settings
+ */
+
+/** @type {InteractionConfiguration} */
 export const INTERACTION_CONFIG = {
   // Mouse interaction settings
   MOUSE: {
@@ -101,6 +145,12 @@ export const INTERACTION_CONFIG = {
 };
 
 // Validation functions
+
+/**
+ * Validates and clamps depth value to valid range
+ * @param {number} depth - The depth value to validate
+ * @returns {number} Clamped depth value between MIN_DEPTH and MAX_DEPTH
+ */
 export function validateDepth(depth) {
   return Math.max(
     INTERACTION_CONFIG.GAME.MIN_DEPTH, 
@@ -108,6 +158,11 @@ export function validateDepth(depth) {
   );
 }
 
+/**
+ * Validates and clamps brush size to valid range
+ * @param {number} size - The brush size to validate
+ * @returns {number} Clamped brush size between MIN_SIZE and MAX_SIZE
+ */
 export function validateBrushSize(size) {
   return Math.max(
     INTERACTION_CONFIG.BRUSH.MIN_SIZE,
@@ -115,6 +170,11 @@ export function validateBrushSize(size) {
   );
 }
 
+/**
+ * Validates and ensures minimum reservoir ID
+ * @param {number} id - The reservoir ID to validate
+ * @returns {number} Validated reservoir ID (minimum MIN_RESERVOIR_ID)
+ */
 export function validateReservoirId(id) {
   return Math.max(INTERACTION_CONFIG.GAME.MIN_RESERVOIR_ID, id);
 }
