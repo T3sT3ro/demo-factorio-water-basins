@@ -267,6 +267,54 @@
     </div>
   </dialog>
   <script type="module" src="app.ts"></script>
+
+  <!-- Templates for debug UI -->
+  <template id="basin-template">
+    <details class="basin-details" open>
+      <summary class="basin-summary" data-basin-id="{{id}}">{{text}}</summary>
+    </details>
+    <li class="basin-item" data-basin-id="{{id}}">{{text}}</li>
+  </template>
+
+  <template id="reservoir-template">
+    <div class="pipe-system-container">
+      <div class="pipe-system-header">
+        <span><strong>Pipe System #{{reservoirId}}:</strong> {{volume}} units</span>
+      </div>
+      <div class="pump-item">
+        <span>{{colorPrefix}} P{{reservoirId}}.{{index}} ({{x}},{{y}}) {{mode}}</span>
+      </div>
+    </div>
+  </template>
+
+  <template id="octave-control-template">
+    <div class="octave-controls">
+      <h5>Octave {{octaveNumber}}</h5>
+      <label>Frequency: <input type="range" min="0.001" max="0.5" step="0.001"><span class="value-display"></span></label>
+      <label>Amplitude: <input type="range" min="0" max="2" step="0.01"><span class="value-display"></span></label>
+    </div>
+  </template>
+
+  <template id="legend-item-template">
+    <div class="legend-item">
+      <div class="legend-color"></div>
+      <span></span>
+    </div>
+  </template>
+
+  <template id="download-link-template">
+    <a></a>
+  </template>
+
+  <template id="remove-button-template">
+    <button class="remove-button"></button>
+  </template>
+
+  <template id="error-message-template">
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #ff4444; color: white; padding: 20px; border-radius: 8px; font-family: Arial, sans-serif; z-index: 10000;">
+      Failed to start application. Check console for details.
+    </div>
+  </template>
 </body>
 
 </html>

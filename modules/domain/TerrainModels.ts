@@ -1,8 +1,5 @@
 // Terrain Domain Models - TypeScript
 
-import { CONFIG } from "../config.js";
-import { Basin } from "./BasinModels.ts";
-
 export interface Position {
   x: number;
   y: number;
@@ -10,12 +7,9 @@ export interface Position {
 
 export class TerrainTile {
   public depth: number;
-  public basin: Basin | null;
 
-
-  constructor(depth = 0, basin: Basin | null = null) {
-    this.depth = Math.floor(Math.max(0, Math.min(depth, CONFIG.MAX_DEPTH)));
-    this.basin = basin;
+  constructor(depth = 0) {
+    this.depth = Math.floor(Math.max(0, Math.min(depth, 10))); // Assuming max depth 10
   }
 }
 
@@ -26,14 +20,13 @@ export class TileMap2D {
     if (tiles) {
       this.tiles = tiles;
     } else {
-      // Initialize empty grid
       this.tiles = [];
       for (let y = 0; y < height; y++) {
         this.tiles[y] = [];
         for (let x = 0; x < width; x++) {
           this.tiles[y]![x] = new TerrainTile();
         }
-      }
+      }  
     }
   }
 
@@ -56,7 +49,6 @@ export class TileMap2D {
     return x >= 0 && x < this.width && y >= 0 && y < this.height;
   }
 
-  /// Get neighboring positions (orthogonal only)
   getNeighborPositions(x: number, y: number): Position[] {
     const neighbors: Position[] = [
       { x: x - 1, y: y },

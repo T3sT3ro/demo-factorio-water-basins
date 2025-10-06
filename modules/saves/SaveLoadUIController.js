@@ -316,7 +316,8 @@ export class SaveLoadUIController {
     const blob = new Blob([output.value], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
-    const a = document.createElement("a");
+    const template = document.getElementById("download-link-template");
+    const a = template ? template.content.querySelector("a").cloneNode(true) : document.createElement("a");
     a.href = url;
     a.download = `water-basins-map-${new Date().toISOString().split("T")[0]}.json`;
     document.body.appendChild(a);

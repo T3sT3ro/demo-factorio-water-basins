@@ -1,0 +1,148 @@
+/**
+ * Event Bus - Centralized event system for loose coupling
+ *
+ * Enables event-driven architecture by replacing direct method calls
+ * with publish/subscribe pattern
+ */
+
+type EventCallback = (data?: unknown) => void;
+
+export class EventBus {
+  private listeners: Map<string, EventCallback[]>;
+  private onceListeners: Map<string, EventCallback[]>;
+  private debugMode: boolean;
+
+  constructor() {
+    this.listeners = new Map();
+    this.onceListeners = new Map();
+    this.debugMode = false;
+  }
+
+  /**
+   * Subscribe to an event
+   */
+  on(eventName: string, callback: EventCallback): () => void {
+    if (!this.listeners.has(eventName)) {
+      this.listeners.set(eventName, []);
+    }
+    this.listeners.get(eventName)!.push(callback);
+
+    // Return unsubscribe function
+    return () => this.off(eventName, callback);
+  }
+
+  /**
+   * Subscribe to an event (one-time only)
+   */
+  once(eventName: string, callback: EventCallback): () => void {
+    if (!this.onceListeners.has(eventName)) {
+      this.onceListeners.set(eventName, []);
+    }
+    this.onceListeners.get(eventName)!.push(callback);
+
+    // Return unsubscribe function
+    return () => this.offOnce(eventName, callback);
+  }
+
+  /**
+   * Unsubscribe from an event
+   */
+  off(eventName: string, callback: EventCallback): void {
+    const listeners = this.listeners.get(eventName);
+    if (listeners) {
+      const index = listeners.indexOf(callback);
+      if (index !== -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * Unsubscribe from a once event
+   */
+  offOnce(eventName: string, callback: EventCallback): void {
+    const listeners = this.onceListeners.get(eventName);
+    if (listeners) {
+      const index = listeners.indexOf(callback);
+      if (index !== -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * Emit an event to all subscribers
+   */
+  emit(eventName: string, data?: unknown): void {
+    if (this.debugMode) {
+      console.log(`[EventBus] Emitting: ${eventName}`, data);
+    }
+
+    // Call regular listeners
+    const listeners = this.listeners.get(eventName);
+    if (listeners) {
+      listeners.forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error(`[EventBus] Error in listener for ${eventName}:`, error);
+        }
+      });
+    }
+
+    // Call once listeners and remove them
+    const onceListeners = this.onceListeners.get(eventName);
+    if (onceListeners) {
+      onceListeners.forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error(`[EventBus] Error in once listener for ${eventName}:`, error);
+        }
+      });
+      // Clear once listeners after calling
+      this.onceListeners.delete(eventName);
+    }
+  }
+
+  /**
+   * Remove all listeners for an event
+   */
+  removeAllListeners(eventName: string): void {
+    this.listeners.delete(eventName);
+    this.onceListeners.delete(eventName);
+  }
+
+  /**
+   * Remove all listeners for all events
+   */
+  clear(): void {
+    this.listeners.clear();
+    this.onceListeners.clear();
+  }
+
+  /**
+   * Get list of all event names with listeners
+   */
+  getEventNames(): string[] {
+    const regularEvents = Array.from(this.listeners.keys());
+    const onceEvents = Array.from(this.onceListeners.keys());
+    return [...new Set([...regularEvents, ...onceEvents])];
+  }
+
+  /**
+   * Get listener count for an event
+   */
+  listenerCount(eventName: string): number {
+    const regular = this.listeners.get(eventName)?.length || 0;
+    const once = this.onceListeners.get(eventName)?.length || 0;
+    return regular + once;
+  }
+
+  /**
+   * Enable/disable debug logging
+   */
+  setDebugMode(enabled: boolean): void {
+    this.debugMode = enabled;
+  }
+}

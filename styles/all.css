@@ -33,6 +33,18 @@
   --surface-2: var(--surface-2-light);
   --surface-3: var(--surface-3-light);
   --surface-4: var(--surface-4-light);
+
+  /* legend colors */
+  --depth-0: oklch(47.077% 0.11211 50.832);
+  --depth-1: oklch(78.892% 0.00009 271.152);
+  --depth-2: oklch(74.763% 0.00008 271.152);
+  --depth-3: oklch(70.576% 0.00008 271.152);
+  --depth-4: oklch(65.996% 0.00008 271.152);
+  --depth-5: oklch(61.671% 0.00007 271.152);
+  --depth-6: oklch(57.268% 0.00007 271.152);
+  --depth-7: oklch(52.431% 0.00006 271.152);
+  --depth-8: oklch(47.836% 0.00005 271.152);
+  --depth-9: oklch(43.128% 0.00005 271.152);
 }
 
 /* Reset to sane sizing model */

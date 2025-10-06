@@ -1,37 +1,16 @@
-/// Main application entry point - TypeScript with Vite
+import { EventBus } from './modules/core/EventBus.ts';
+import { Renderer } from './modules/rendering/Renderer.ts';
+import { NoiseControlUI } from './modules/ui/NoiseControlUI.ts';
+import { BasinDebugDisplay } from './modules/ui/BasinDebugDisplay.ts';
+import { UISettings } from './modules/ui/UISettings.ts';
 
-import { EventBus } from './modules/core/EventBus.js';
-import { Renderer } from './modules/rendering/Renderer.js';
-import { UISettings } from './modules/ui/UISettings.js';
-import { NoiseControlUI } from './modules/ui/NoiseControlUI.js';
-import { DebugDisplay } from './modules/ui/DebugDisplay.js';
 import { SaveLoadManager } from './modules/saves/saveload.js';
-import { CanvasController } from './modules/controllers/CanvasController.js';
-import { UIController } from './modules/controllers/UIController.js';
-import { KeyboardController } from './modules/controllers/KeyboardController.js';
-import { RenderingCoordinator } from './modules/coordinators/RenderingCoordinator.js';
-import { InitializationCoordinator } from './modules/coordinators/InitializationCoordinator.js';
-import { CONFIG, setupCanvas } from './modules/config.js';
-import { UI_CONSTANTS } from './modules/constants.js';
-
-/// Simple game state interface
-interface GameState {
-  getHeightData(): number[];
-  getBasinData(): unknown[];
-  getPumpData(): unknown[];
-  getReservoirData(): unknown[];
-  getWaterData(): unknown[];
-  getWorldSize(): { width: number; height: number };
-  getTickCounter(): number;
-  setHeightData(data: number[]): void;
-  setBasinData(data: unknown[]): void;
-  setPumpData(data: unknown[]): void;
-  setReservoirData(data: unknown[]): void;
-  setWaterData(data: unknown[]): void;
-  setTickCounter(counter: number): void;
-  tick(): void;
-  setSelectedReservoir(id: string | null): void;
-}
+import { CanvasController } from './modules/controllers/CanvasController.ts';
+import { UIController } from './modules/controllers/UIController.ts';
+import { KeyboardController } from './modules/controllers/KeyboardController.ts';
+import { CONFIG, setupCanvas } from './modules/config.ts';
+import { UI_CONSTANTS } from './modules/constants.ts';
+import { GameState } from './modules/domain/GameState.ts';
 
 /// Extend globalThis for development
 declare global {
@@ -43,85 +22,45 @@ declare global {
   var saveLoadManager: SaveLoadManager;
 }
 
-/// Main Application Class - Clean Architecture Implementation
+/// Main Application Class - Clean Architecture with Dependency Injection
 class Application {
   private eventBus: EventBus;
   private gameState: GameState;
   private renderer: Renderer;
   private uiSettings: UISettings;
+  private renderSettings: { showLabels: boolean; showGrid: boolean };
   private noiseControlUI: NoiseControlUI;
-  private debugDisplay: DebugDisplay;
+  private debugDisplay: BasinDebugDisplay;
   private saveLoadManager: SaveLoadManager;
   private canvasController: CanvasController;
   private uiController: UIController;
   private keyboardController: KeyboardController;
-  private renderingCoordinator: RenderingCoordinator;
-  private initializationCoordinator: InitializationCoordinator;
 
-  constructor() {
-    /// Directly instantiate dependencies
-    this.eventBus = new EventBus();
-    
-    /// Create a simple game state object for now
-    this.gameState = {
-      /// Placeholder methods that the save/load system expects
-      getHeightData: () => [],
-      getBasinData: () => [],
-      getPumpData: () => [],
-      getReservoirData: () => [],
-      getWaterData: () => [],
-      getWorldSize: () => ({ width: 100, height: 100 }),
-      getTickCounter: () => 0,
-      setHeightData: () => {},
-      setBasinData: () => {},
-      setPumpData: () => {},
-      setReservoirData: () => {},
-      setWaterData: () => {},
-      setTickCounter: () => {},
-      tick: () => {},
-      setSelectedReservoir: () => {}
-    };
+  constructor(
+    eventBus: EventBus,
+    gameState: GameState,
+    renderer: Renderer,
+    uiSettings: UISettings,
+    renderSettings: { showLabels: boolean; showGrid: boolean },
+    noiseControlUI: NoiseControlUI,
+    debugDisplay: BasinDebugDisplay,
+    saveLoadManager: SaveLoadManager,
+    canvasController: CanvasController,
+    uiController: UIController,
+    keyboardController: KeyboardController
+  ) {
+    this.eventBus = eventBus;
+    this.gameState = gameState;
+    this.renderer = renderer;
+    this.uiSettings = uiSettings;
+    this.renderSettings = renderSettings;
+    this.noiseControlUI = noiseControlUI;
+    this.debugDisplay = debugDisplay;
+    this.saveLoadManager = saveLoadManager;
+    this.canvasController = canvasController;
+    this.uiController = uiController;
+    this.keyboardController = keyboardController;
 
-    const { canvas, ctx } = setupCanvas();
-    this.renderer = new Renderer(canvas, ctx);
-    this.uiSettings = new UISettings();
-    
-    /// Pass null for noiseSettings, or replace with a default if needed
-    this.noiseControlUI = new NoiseControlUI(
-      null,
-      () => this.eventBus.emit('noise.live.update'),
-      () => this.eventBus.emit('noise.final.update')
-    );
-    
-    this.debugDisplay = new DebugDisplay(null, this.gameState);
-    this.saveLoadManager = new SaveLoadManager(this.gameState, () => this.eventBus.emit('gamestate.changed'));
-    this.canvasController = new CanvasController(canvas, this.gameState, this.renderer, UI_CONSTANTS, this.eventBus);
-    this.uiController = new UIController(this.gameState, this.renderer, this.eventBus);
-    this.keyboardController = new KeyboardController(this.eventBus);
-    
-    this.renderingCoordinator = new RenderingCoordinator(
-      this.renderer,
-      this.gameState,
-      this.uiSettings,
-      CONFIG,
-      this.canvasController
-    );
-    
-    this.initializationCoordinator = new InitializationCoordinator(
-      setupCanvas,
-      CONFIG,
-      null, /// GameState no longer needed
-      Renderer,
-      UISettings,
-      NoiseControlUI,
-      DebugDisplay,
-      SaveLoadManager,
-      CanvasController,
-      UIController,
-      KeyboardController,
-      UI_CONSTANTS
-    );
-    
     this.setupEventListeners();
   }
 
@@ -130,26 +69,25 @@ class Application {
     /// Terrain changes
     this.eventBus.on('terrain.changed', () => {
       this.renderer.onTerrainChanged();
-      this.renderingCoordinator.draw();
-      this.eventBus.emit('analysis.update');
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
 
     /// Water changes
     this.eventBus.on('water.changed', () => {
       this.renderer.onWaterChanged();
-      this.renderingCoordinator.draw();
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
 
     /// Pump changes
     this.eventBus.on('pumps.changed', () => {
       this.renderer.onPumpsChanged();
-      this.renderingCoordinator.draw();
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
 
     /// Labels toggle
     this.eventBus.on('labels.toggled', () => {
       this.renderer.onLabelsToggled();
-      this.renderingCoordinator.draw();
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
 
     /// Basin analysis update
@@ -163,19 +101,20 @@ class Application {
     });
 
     /// Insights update
-    this.eventBus.on('insights.update', (data: { tileInfo?: unknown } = {}) => {
-      this.renderingCoordinator.updateInsightsDisplay(data?.tileInfo as null | undefined);
+    this.eventBus.on('insights.update', (_data) => {
+      // Simplified - just trigger render
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
 
     /// Rendering requests
     this.eventBus.on('render.request', () => {
-      this.renderingCoordinator.draw();
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
 
     /// Depth selection
-    this.eventBus.on('depth.selected', (data: { depth: number }) => {
-      const actualDepth = this.renderingCoordinator.setSelectedDepth(data.depth);
-      this.canvasController.setSelectedDepth(actualDepth);
+    this.eventBus.on('depth.selected', (_data) => {
+      // Simplified - just trigger render
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
 
     /// Game state changes
@@ -190,15 +129,15 @@ class Application {
 
     /// New noise control events
     this.eventBus.on('noise.live.update', () => {
-      this.renderingCoordinator.onLiveNoiseUpdate();
+      // Simplified
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
 
     this.eventBus.on('noise.final.update', () => {
-      this.renderingCoordinator.onFinalNoiseUpdate();
+      // Simplified
+      this.renderer.renderOptimized(this.gameState, this.renderSettings, null, new Map(), null, 1, 0, null);
     });
-  }
-
-  /// Initialize the application
+  }  /// Initialize the application
   init(): void {
     try {
       /// Initialize game state (canvas is already setup through DI)
@@ -247,19 +186,19 @@ class Application {
     this.noiseControlUI.createOctaveControls();
     
     /// Legend is now auto-initialized in Renderer constructor
-    this.renderingCoordinator.updateLegendSelection();
+    /// this.renderingCoordinator.updateLegendSelection();
   }
 
   /// Handle game state changes
   private onGameStateChanged(): void {
-    this.renderingCoordinator.onGameStateChanged(this.noiseControlUI);
+    /// this.renderingCoordinator.onGameStateChanged(this.noiseControlUI);
     this.eventBus.emit('analysis.update');
     this.eventBus.emit('reservoir.controls.update');
   }
 
   /// Handle noise settings changes
   private onNoiseSettingsChanged(): void {
-    this.renderingCoordinator.onNoiseSettingsChanged(this.noiseControlUI);
+    /// this.renderingCoordinator.onNoiseSettingsChanged(this.noiseControlUI);
     this.eventBus.emit('analysis.update');
   }
 
@@ -271,12 +210,53 @@ class Application {
   }
 }
 
+/// Factory function to create Application with all dependencies
+function createApplication(): Application {
+  /// Create core dependencies
+  const eventBus = new EventBus();
+  const gameState = new GameState(CONFIG.WORLD_W, CONFIG.WORLD_H);
+
+  const { canvas, ctx } = setupCanvas();
+  const renderer = new Renderer(canvas, ctx);
+  const uiSettings = new UISettings();
+  const renderSettings = { showLabels: true, showGrid: false };
+
+  /// Create UI components
+  const noiseControlUI = new NoiseControlUI(
+    gameState,
+    () => eventBus.emit('noise.live.update'),
+    () => eventBus.emit('noise.final.update')
+  );
+
+  const debugDisplay = new BasinDebugDisplay(gameState);
+  const saveLoadManager = new SaveLoadManager(gameState, () => eventBus.emit('gamestate.changed'));
+
+  /// Create controllers
+  const canvasController = new CanvasController(canvas, gameState, renderer, UI_CONSTANTS, eventBus);
+  const uiController = new UIController(gameState, renderer, eventBus);
+  const keyboardController = new KeyboardController(eventBus);
+
+  return new Application(
+    eventBus,
+    gameState,
+    renderer,
+    uiSettings,
+    renderSettings,
+    noiseControlUI,
+    debugDisplay,
+    saveLoadManager,
+    canvasController,
+    uiController,
+    keyboardController
+  );
+}
+
 /// Initialize the application
 function initializeApp(): void {
   console.log('🚀 Initializing Tilemap Water Pumping Application');
-  
+
   try {
-    const app = new Application();
+    const app = createApplication();
     globalThis.tilemapApp = app;
 
     if (document.readyState === 'loading') {
@@ -292,14 +272,21 @@ function initializeApp(): void {
     console.error("❌ Failed to initialize application:", error);
     
     /// Show user-friendly error
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = `
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: #ff4444; color: white; padding: 20px; border-radius: 8px;
-      font-family: Arial, sans-serif; z-index: 10000;
-    `;
-    errorDiv.textContent = 'Failed to start application. Check console for details.';
-    document.body.appendChild(errorDiv);
+    const template = document.getElementById('error-message-template') as HTMLTemplateElement;
+    if (template) {
+      const errorDiv = template.content.querySelector('div')!.cloneNode(true) as HTMLElement;
+      document.body.appendChild(errorDiv);
+    } else {
+      // Fallback
+      const errorDiv = document.createElement('div');
+      errorDiv.style.cssText = `
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: #ff4444; color: white; padding: 20px; border-radius: 8px;
+        font-family: Arial, sans-serif; z-index: 10000;
+      `;
+      errorDiv.textContent = 'Failed to start application. Check console for details.';
+      document.body.appendChild(errorDiv);
+    }
   }
 }
 

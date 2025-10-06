@@ -1,6 +1,6 @@
 // TerrainManager: handles terrain generation, encoding, decoding
-import { CONFIG } from "../config.js";
-import { HeightGenerator } from "../noise.js";
+import { CONFIG } from "../config.ts";
+import { HeightGenerator } from "../noise.ts";
 
 export class TerrainManager {
   readonly #heightGenerator: HeightGenerator;
