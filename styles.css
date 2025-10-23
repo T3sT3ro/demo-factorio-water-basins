@@ -5,13 +5,13 @@
   --min-width-value: var(--size-10);
   --min-width-octave-value: var(--size-9);
   --min-width-canvas-container: var(--size-12);
-  
+
   /* Common spacing and sizing patterns */
   --control-gap: var(--size-1);
   --control-padding: var(--size-2);
   --modal-max-width: var(--size-content-3);
   --modal-backdrop-opacity: 0.5;
-  
+
   /* Animation and transition defaults */
   --transition-standard: all var(--animation-speed-normal) ease;
   --hover-brightness: 1.5;
@@ -64,7 +64,8 @@ html {
 }
 
 .mono-font {
-  font-family: var(--font-mono), "Courier New", monospace;
+  font-family:
+    var(--font-mono), "Courier New", monospace;
 }
 
 .standard-border {
@@ -75,7 +76,7 @@ html {
 .interactive-button {
   cursor: pointer;
   transition: var(--transition-standard);
-  
+
   &:hover {
     filter: brightness(var(--hover-brightness));
   }
@@ -95,7 +96,8 @@ html {
 }
 
 body {
-  font-family: var(--font-sans), system-ui, Arial, sans-serif;
+  font-family:
+    var(--font-sans), system-ui, Arial, sans-serif;
   margin: var(--size-2);
   display: flex;
   gap: var(--size-2);
@@ -445,7 +447,8 @@ select {
 .value-display {
   min-inline-size: var(--min-width-value);
   text-align: end;
-  font-family: var(--font-mono), "Courier New", monospace;
+  font-family:
+    var(--font-mono), "Courier New", monospace;
   font-size: var(--font-size-0);
   color: var(--text-2);
 }
@@ -503,7 +506,8 @@ select {
     background: var(--gray-4);
     padding: var(--size-1) var(--size-2);
     border-radius: var(--radius-2);
-    font-family: var(--font-mono), "Courier New", monospace;
+    font-family:
+      var(--font-mono), "Courier New", monospace;
     font-size: var(--font-size-1);
   }
 }
@@ -532,7 +536,8 @@ select {
   flex: 1;
   overflow-y: auto;
   line-height: var(--line-height-2);
-  font-family: var(--font-mono), "Courier New", monospace;
+  font-family:
+    var(--font-mono), "Courier New", monospace;
   min-block-size: 0;
   white-space: pre;
   font-size: var(--font-size-0);

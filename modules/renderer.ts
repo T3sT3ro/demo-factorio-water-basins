@@ -1,10 +1,51 @@
 // Rendering and drawing functionality
 
-import { CONFIG } from "./config.js";
-import { BasinLabelManager } from "./labels.js";
-import { CSS_CLASSES, UI_CONSTANTS } from "./constants.js";
+import { CONFIG } from "./config.ts";
+import { BasinLabelManager } from "./labels.ts";
+import { CSS_CLASSES, UI_CONSTANTS } from "./constants.ts";
+import type { Pump } from "./pumps.ts";
+import type { BasinManager } from "./basins.ts";
 
-export function getHeightColor(depth) {
+interface Camera {
+  x: number;
+  y: number;
+  zoom: number;
+  minZoom: number;
+  maxZoom: number;
+}
+
+interface LayerDirty {
+  terrain: boolean;
+  infrastructure: boolean;
+  water: boolean;
+  interactive: boolean;
+  highlight: boolean;
+}
+
+interface LabelSettings {
+  showDepthLabels: boolean;
+  showBasinLabels: boolean;
+  showPumpLabels: boolean;
+}
+
+interface BasinData {
+  tiles: Set<string>;
+  volume: number;
+  level: number;
+  height: number;
+  outlets: string[];
+}
+
+interface GameState {
+  getHeights(): number[][];
+  getPumpsByReservoir(): Map<number, Array<Pump & { index: number }>>;
+  getBasins(): Map<string, BasinData>;
+  getBasinManager(): BasinManager;
+  getHighlightedBasin(): string | null;
+  getPumps(): Pump[];
+}
+
+export function getHeightColor(depth: number): string {
   // Only depth 0 = surface (brown), all others = gray
   if (depth === 0) {
     return UI_CONSTANTS.RENDERING.COLORS.TERRAIN.SURFACE;
@@ -19,7 +60,23 @@ export function getHeightColor(depth) {
 }
 
 export class Renderer {
-  constructor(canvas, ctx) {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  basinLabelManager: BasinLabelManager;
+  camera: Camera;
+  private terrainCanvas: HTMLCanvasElement;
+  private terrainCtx: CanvasRenderingContext2D;
+  private infrastructureCanvas: HTMLCanvasElement;
+  private infrastructureCtx: CanvasRenderingContext2D;
+  private waterCanvas: HTMLCanvasElement;
+  private waterCtx: CanvasRenderingContext2D;
+  private interactiveCanvas: HTMLCanvasElement;
+  private interactiveCtx: CanvasRenderingContext2D;
+  private highlightCanvas: HTMLCanvasElement;
+  private highlightCtx: CanvasRenderingContext2D;
+  private layerDirty: LayerDirty;
+
+  constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     this.canvas = canvas;
     this.ctx = ctx;
     this.basinLabelManager = new BasinLabelManager();
@@ -34,64 +91,65 @@ export class Renderer {
     };
 
     // Initialize off-screen canvases for layered rendering
-    this.initializeOffScreenCanvases();
-    
+    const layers = this.initializeOffScreenCanvases();
+    this.terrainCanvas = layers[0]!.canvas;
+    this.terrainCtx = layers[0]!.ctx;
+    this.infrastructureCanvas = layers[1]!.canvas;
+    this.infrastructureCtx = layers[1]!.ctx;
+    this.waterCanvas = layers[2]!.canvas;
+    this.waterCtx = layers[2]!.ctx;
+    this.interactiveCanvas = layers[3]!.canvas;
+    this.interactiveCtx = layers[3]!.ctx;
+    this.highlightCanvas = layers[4]!.canvas;
+    this.highlightCtx = layers[4]!.ctx;
+
     // Track which layers need updates
     this.layerDirty = {
       terrain: true,
       infrastructure: true,
       water: true,
       interactive: true,
-      highlight: true
+      highlight: true,
     };
   }
 
-  initializeOffScreenCanvases() {
+  private initializeOffScreenCanvases(): Array<
+    { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }
+  > {
     const width = this.canvas.width;
     const height = this.canvas.height;
 
-    // Layer 1: Static terrain
-    this.terrainCanvas = document.createElement('canvas');
-    this.terrainCanvas.width = width;
-    this.terrainCanvas.height = height;
-    this.terrainCtx = this.terrainCanvas.getContext('2d');
+    const createLayer = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Failed to get 2D context for off-screen canvas");
+      return { canvas, ctx };
+    };
 
-    // Layer 2: Infrastructure (chunk boundaries, pump connections)
-    this.infrastructureCanvas = document.createElement('canvas');
-    this.infrastructureCanvas.width = width;
-    this.infrastructureCanvas.height = height;
-    this.infrastructureCtx = this.infrastructureCanvas.getContext('2d');
-
-    // Layer 3: Dynamic water
-    this.waterCanvas = document.createElement('canvas');
-    this.waterCanvas.width = width;
-    this.waterCanvas.height = height;
-    this.waterCtx = this.waterCanvas.getContext('2d');
-
-    // Layer 4: Interactive elements (pumps, labels)
-    this.interactiveCanvas = document.createElement('canvas');
-    this.interactiveCanvas.width = width;
-    this.interactiveCanvas.height = height;
-    this.interactiveCtx = this.interactiveCanvas.getContext('2d');
-
-    // Layer 5: Basin highlights (separate for performance)
-    this.highlightCanvas = document.createElement('canvas');
-    this.highlightCanvas.width = width;
-    this.highlightCanvas.height = height;
-    this.highlightCtx = this.highlightCanvas.getContext('2d');
+    return [
+      createLayer(), // terrain
+      createLayer(), // infrastructure
+      createLayer(), // water
+      createLayer(), // interactive
+      createLayer(), // highlight
+    ];
   }
 
   // Mark specific layers as needing updates
-  markLayerDirty(layer) {
-    if (layer === 'all') {
-      Object.keys(this.layerDirty).forEach(key => this.layerDirty[key] = true);
+  markLayerDirty(layer: keyof LayerDirty | "all"): void {
+    if (layer === "all") {
+      Object.keys(this.layerDirty).forEach((key) => {
+        this.layerDirty[key as keyof LayerDirty] = true;
+      });
     } else if (layer in this.layerDirty) {
       this.layerDirty[layer] = true;
     }
   }
 
   // Apply camera transformation to any context
-  applyCameraTransformToContext(ctx) {
+  private applyCameraTransformToContext(ctx: CanvasRenderingContext2D): void {
     ctx.setTransform(
       this.camera.zoom,
       0,
@@ -103,38 +161,38 @@ export class Renderer {
   }
 
   // Apply camera transformation to main context
-  applyCameraTransform() {
+  applyCameraTransform(): void {
     this.applyCameraTransformToContext(this.ctx);
   }
 
   // Reset camera transformation for any context
-  resetTransformForContext(ctx) {
+  private resetTransformForContext(ctx: CanvasRenderingContext2D): void {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   // Reset camera transformation
-  resetTransform() {
+  resetTransform(): void {
     this.resetTransformForContext(this.ctx);
   }
 
   // Convert screen coordinates to world coordinates
-  screenToWorld(screenX, screenY) {
+  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
     return {
-      x: (screenX / this.camera.zoom) + this.camera.x,
-      y: (screenY / this.camera.zoom) + this.camera.y,
+      x: screenX / this.camera.zoom + this.camera.x,
+      y: screenY / this.camera.zoom + this.camera.y,
     };
   }
 
   // Pan camera by given offset
-  pan(deltaX, deltaY) {
+  pan(deltaX: number, deltaY: number): void {
     this.camera.x += deltaX / this.camera.zoom;
     this.camera.y += deltaY / this.camera.zoom;
     // All layers need to be redrawn when camera moves
-    this.markLayerDirty('all');
+    this.markLayerDirty("all");
   }
 
   // Zoom camera at given point
-  zoomAt(screenX, screenY, zoomFactor) {
+  zoomAt(screenX: number, screenY: number, zoomFactor: number): void {
     const worldBefore = this.screenToWorld(screenX, screenY);
 
     this.camera.zoom *= zoomFactor;
@@ -146,32 +204,32 @@ export class Renderer {
     const worldAfter = this.screenToWorld(screenX, screenY);
     this.camera.x += worldBefore.x - worldAfter.x;
     this.camera.y += worldBefore.y - worldAfter.y;
-    
+
     // All layers need to be redrawn when camera zooms
-    this.markLayerDirty('all');
+    this.markLayerDirty("all");
   }
 
-  clear() {
+  clear(): void {
     this.resetTransform();
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.applyCameraTransform();
   }
 
-  clearLayer(ctx) {
+  private clearLayer(ctx: CanvasRenderingContext2D): void {
     this.resetTransformForContext(ctx);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     this.applyCameraTransformToContext(ctx);
   }
 
-  renderTerrainLayer(heights) {
+  renderTerrainLayer(heights: number[][]): void {
     if (!this.layerDirty.terrain) return;
-    
+
     this.clearLayer(this.terrainCtx);
 
     // Draw all terrain tiles
     for (let y = 0; y < CONFIG.WORLD_H; y++) {
       for (let x = 0; x < CONFIG.WORLD_W; x++) {
-        const depth = heights[y][x];
+        const depth = heights[y]![x]!;
         this.terrainCtx.fillStyle = getHeightColor(depth);
         this.terrainCtx.fillRect(
           x * CONFIG.TILE_SIZE,
@@ -185,15 +243,21 @@ export class Renderer {
     this.layerDirty.terrain = false;
   }
 
-  renderInfrastructureLayer(pumpsByReservoir, showChunkBoundaries = true) {
+  renderInfrastructureLayer(
+    pumpsByReservoir: Map<number, Array<Pump & { index: number }>>,
+    showChunkBoundaries: boolean = true,
+  ): void {
     if (!this.layerDirty.infrastructure) return;
-    
+
     this.clearLayer(this.infrastructureCtx);
 
     // Draw chunk boundaries
     if (showChunkBoundaries) {
-      this.infrastructureCtx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.INFRASTRUCTURE.CHUNK_BOUNDARIES;
-      this.infrastructureCtx.lineWidth = this.getScaledLineWidth(UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.BASE_WIDTH);
+      this.infrastructureCtx.strokeStyle =
+        UI_CONSTANTS.RENDERING.COLORS.INFRASTRUCTURE.CHUNK_BOUNDARIES;
+      this.infrastructureCtx.lineWidth = this.getScaledLineWidth(
+        UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.BASE_WIDTH,
+      );
 
       // Vertical lines
       for (let cx = 0; cx <= CONFIG.WORLD_W; cx += CONFIG.CHUNK_SIZE) {
@@ -213,20 +277,24 @@ export class Renderer {
     }
 
     // Draw pump connections
-    const scaledLineWidth = this.getScaledLineWidth(UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.PUMP_BASE_WIDTH);
-    const dashPattern = this.camera.zoom < UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_THRESHOLD 
-      ? UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_ZOOMED_OUT 
+    const scaledLineWidth = this.getScaledLineWidth(
+      UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.PUMP_BASE_WIDTH,
+    );
+    const dashPattern = this.camera.zoom <
+        UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_THRESHOLD
+      ? UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_ZOOMED_OUT
       : UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_NORMAL;
 
-    pumpsByReservoir.forEach((pumpsInReservoir, _reservoirId) => {
+    pumpsByReservoir.forEach((pumpsInReservoir) => {
       if (pumpsInReservoir.length > 1) {
-        this.infrastructureCtx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.INFRASTRUCTURE.PUMP_CONNECTIONS;
+        this.infrastructureCtx.strokeStyle =
+          UI_CONSTANTS.RENDERING.COLORS.INFRASTRUCTURE.PUMP_CONNECTIONS;
         this.infrastructureCtx.lineWidth = scaledLineWidth;
         this.infrastructureCtx.setLineDash(dashPattern);
 
         for (let i = 0; i < pumpsInReservoir.length - 1; i++) {
-          const pump1 = pumpsInReservoir[i];
-          const pump2 = pumpsInReservoir[i + 1];
+          const pump1 = pumpsInReservoir[i]!;
+          const pump2 = pumpsInReservoir[i + 1]!;
 
           const x1 = pump1.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
           const y1 = pump1.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
@@ -247,9 +315,12 @@ export class Renderer {
   }
 
   // Get appropriate font size based on zoom level to keep text readable
-  getScaledFontSize(baseFontSize = UI_CONSTANTS.RENDERING.SCALING.FONT.BASE_SIZE) {
-    const { MIN_SIZE, MAX_SIZE, SCALE_THRESHOLD_MIN, SCALE_THRESHOLD_MAX } = UI_CONSTANTS.RENDERING.SCALING.FONT;
-    
+  private getScaledFontSize(
+    baseFontSize: number = UI_CONSTANTS.RENDERING.SCALING.FONT.BASE_SIZE,
+  ): number {
+    const { MIN_SIZE, MAX_SIZE, SCALE_THRESHOLD_MIN, SCALE_THRESHOLD_MAX } =
+      UI_CONSTANTS.RENDERING.SCALING.FONT;
+
     // Simplified scaling - only scale at extreme zoom levels
     if (this.camera.zoom < SCALE_THRESHOLD_MIN) {
       return Math.max(MIN_SIZE, baseFontSize / this.camera.zoom);
@@ -260,27 +331,34 @@ export class Renderer {
   }
 
   // Get scaled line width for better visibility at different zoom levels
-  getScaledLineWidth(baseWidth = UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.BASE_WIDTH) {
+  private getScaledLineWidth(
+    baseWidth: number = UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.BASE_WIDTH,
+  ): number {
     const { MIN_WIDTH, SCALE_THRESHOLD } = UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH;
-    
+
     // Only scale line width at very low zoom levels
-    return this.camera.zoom < SCALE_THRESHOLD ? Math.max(MIN_WIDTH, baseWidth / this.camera.zoom) : baseWidth;
+    return this.camera.zoom < SCALE_THRESHOLD
+      ? Math.max(MIN_WIDTH, baseWidth / this.camera.zoom)
+      : baseWidth;
   }
 
-  renderWaterLayer(basins) {
+  renderWaterLayer(basins: Map<string, BasinData>): void {
     if (!this.layerDirty.water) return;
-    
+
     this.clearLayer(this.waterCtx);
 
-    for (const [_id, basin] of basins) {
+    for (const [, basin] of basins) {
       if (basin.level <= 0) continue;
-      
-      const { BASE_COLOR, MIN_ALPHA, ALPHA_PER_LEVEL, MAX_ALPHA } = UI_CONSTANTS.RENDERING.COLORS.WATER;
+
+      const { BASE_COLOR, MIN_ALPHA, ALPHA_PER_LEVEL, MAX_ALPHA } =
+        UI_CONSTANTS.RENDERING.COLORS.WATER;
       const alpha = Math.min(MAX_ALPHA, MIN_ALPHA + basin.level * ALPHA_PER_LEVEL);
       this.waterCtx.fillStyle = `rgba(${BASE_COLOR},${alpha})`;
 
       basin.tiles.forEach((tileKey) => {
-        const [tx, ty] = tileKey.split(",").map(Number);
+        const parts = tileKey.split(",");
+        const tx = parseInt(parts[0]!);
+        const ty = parseInt(parts[1]!);
         // Only draw water if it's above the terrain height
         if (basin.level > basin.height) {
           this.waterCtx.fillRect(
@@ -296,15 +374,24 @@ export class Renderer {
     this.layerDirty.water = false;
   }
 
-  renderInteractiveLayer(pumps, selectedReservoirId, heights, basins, labelSettings) {
+  renderInteractiveLayer(
+    pumps: Pump[],
+    selectedReservoirId: number | null,
+    heights: number[][],
+    basins: Map<string, BasinData>,
+    labelSettings: LabelSettings,
+  ): void {
     if (!this.layerDirty.interactive) return;
-    
+
     this.clearLayer(this.interactiveCtx);
 
     // Draw pumps
-    const scaledLineWidth = this.getScaledLineWidth(UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.PUMP_BASE_WIDTH);
+    const scaledLineWidth = this.getScaledLineWidth(
+      UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.PUMP_BASE_WIDTH,
+    );
     const pumpRadius = CONFIG.TILE_SIZE * UI_CONSTANTS.RENDERING.SCALING.PUMP.RADIUS_MULTIPLIER;
-    const highlightRadius = CONFIG.TILE_SIZE * UI_CONSTANTS.RENDERING.SCALING.PUMP.HIGHLIGHT_RADIUS_MULTIPLIER;
+    const highlightRadius = CONFIG.TILE_SIZE *
+      UI_CONSTANTS.RENDERING.SCALING.PUMP.HIGHLIGHT_RADIUS_MULTIPLIER;
 
     for (const pump of pumps) {
       const cx = pump.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
@@ -321,7 +408,7 @@ export class Renderer {
 
       this.interactiveCtx.beginPath();
       this.interactiveCtx.arc(cx, cy, pumpRadius, 0, Math.PI * 2);
-      this.interactiveCtx.strokeStyle = (pump.mode === "inlet")
+      this.interactiveCtx.strokeStyle = pump.mode === "inlet"
         ? UI_CONSTANTS.RENDERING.COLORS.PUMPS.INLET
         : UI_CONSTANTS.RENDERING.COLORS.PUMPS.OUTLET;
       this.interactiveCtx.lineWidth = scaledLineWidth;
@@ -352,9 +439,9 @@ export class Renderer {
     this.layerDirty.interactive = false;
   }
 
-  renderHighlightLayer(basinManager, highlightedBasin) {
+  renderHighlightLayer(basinManager: BasinManager | null, highlightedBasin: string | null): void {
     if (!this.layerDirty.highlight) return;
-    
+
     this.clearLayer(this.highlightCtx);
 
     // Only render if there's a basin to highlight
@@ -364,12 +451,16 @@ export class Renderer {
       if (basin) {
         this.highlightCtx.fillStyle = UI_CONSTANTS.RENDERING.COLORS.BASIN_HIGHLIGHT.FILL;
         this.highlightCtx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.BASIN_HIGHLIGHT.STROKE;
-        this.highlightCtx.lineWidth = this.getScaledLineWidth(UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.HIGHLIGHT_BASE_WIDTH);
+        this.highlightCtx.lineWidth = this.getScaledLineWidth(
+          UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.HIGHLIGHT_BASE_WIDTH,
+        );
 
         // Draw highlight for each tile in the basin
         basin.tiles.forEach((tileKey) => {
-          const [x, y] = tileKey.split(",").map(Number);
-          const params = [
+          const parts = tileKey.split(",");
+          const x = parseInt(parts[0]!);
+          const y = parseInt(parts[1]!);
+          const params: [number, number, number, number] = [
             x * CONFIG.TILE_SIZE,
             y * CONFIG.TILE_SIZE,
             CONFIG.TILE_SIZE,
@@ -384,10 +475,10 @@ export class Renderer {
     this.layerDirty.highlight = false;
   }
 
-  drawDepthLabelsToContext(ctx, heights) {
+  private drawDepthLabelsToContext(ctx: CanvasRenderingContext2D, heights: number[][]): void {
     for (let y = 0; y < CONFIG.WORLD_H; y++) {
       for (let x = 0; x < CONFIG.WORLD_W; x++) {
-        const depth = heights[y][x];
+        const depth = heights[y]![x]!;
         if (depth > 0) { // Only show depth for non-land tiles
           const labelX = x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
           const labelY = y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
@@ -397,7 +488,7 @@ export class Renderer {
           const range = UI_CONSTANTS.RENDERING.COLORS.TERRAIN.DEPTH_GRAY_RANGE;
           const grayValue = Math.floor(lightGray - (depth / CONFIG.MAX_DEPTH) * range);
           const threshold = UI_CONSTANTS.RENDERING.COLORS.LABELS.GRAY_THRESHOLD;
-          
+
           if (grayValue > threshold) {
             ctx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.LABELS.STROKE_LIGHT_BG;
             ctx.fillStyle = UI_CONSTANTS.RENDERING.COLORS.LABELS.TEXT_LIGHT_BG;
@@ -414,24 +505,27 @@ export class Renderer {
     }
   }
 
-  drawPumpLabelsToContext(ctx, pumps) {
+  private drawPumpLabelsToContext(ctx: CanvasRenderingContext2D, pumps: Pump[]): void {
     const fontSize = this.getScaledFontSize();
     ctx.font = `${fontSize}px Arial`;
-    const scaledLineWidth = this.getScaledLineWidth(UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.BASE_WIDTH);
+    const scaledLineWidth = this.getScaledLineWidth(
+      UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.BASE_WIDTH,
+    );
     const strokeMultiplier = UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.LABEL_STROKE_MULTIPLIER;
-    const labelYOffset = CONFIG.TILE_SIZE * UI_CONSTANTS.RENDERING.SCALING.PUMP.LABEL_Y_OFFSET_MULTIPLIER;
+    const labelYOffset = CONFIG.TILE_SIZE *
+      UI_CONSTANTS.RENDERING.SCALING.PUMP.LABEL_Y_OFFSET_MULTIPLIER;
 
     // Group pumps by reservoir to get proper pump indices per reservoir
-    const pumpsByReservoir = new Map();
+    const pumpsByReservoir = new Map<number, Array<Pump & { globalIndex: number }>>();
     pumps.forEach((pump, globalIndex) => {
       if (!pumpsByReservoir.has(pump.reservoirId)) {
         pumpsByReservoir.set(pump.reservoirId, []);
       }
-      pumpsByReservoir.get(pump.reservoirId).push({ ...pump, globalIndex });
+      pumpsByReservoir.get(pump.reservoirId)!.push({ ...pump, globalIndex });
     });
 
     // Draw labels for each pump with proper P{reservoirId}.{reservoirPumpIndex} naming
-    pumpsByReservoir.forEach((reservoirPumps, _reservoirId) => {
+    pumpsByReservoir.forEach((reservoirPumps) => {
       reservoirPumps.forEach((pump, reservoirPumpIndex) => {
         const labelX = pump.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
         const labelY = pump.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2 + labelYOffset;
@@ -439,7 +533,7 @@ export class Renderer {
         const pumpText = `P${pump.reservoirId || "?"}.${reservoirPumpIndex + 1}`;
 
         ctx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.LABELS.STROKE_LIGHT_BG;
-        ctx.fillStyle = (pump.mode === "inlet") 
+        ctx.fillStyle = pump.mode === "inlet"
           ? UI_CONSTANTS.RENDERING.COLORS.PUMPS.INLET_LABEL
           : UI_CONSTANTS.RENDERING.COLORS.PUMPS.OUTLET_LABEL;
 
@@ -452,20 +546,28 @@ export class Renderer {
   }
 
   // New optimized render method that uses layered rendering
-  renderOptimized(gameState, uiSettings, selectedReservoirId, brushOverlay, brushCenter, brushSize, selectedDepth) {
+  renderOptimized(
+    gameState: GameState,
+    uiSettings: LabelSettings,
+    selectedReservoirId: number | null,
+    brushOverlay: Map<string, number>,
+    brushCenter: { x: number; y: number } | null,
+    brushSize: number,
+    selectedDepth: number,
+  ): void {
     // Render each layer only if it's dirty
     this.renderTerrainLayer(gameState.getHeights());
 
     this.renderInfrastructureLayer(
       gameState.getPumpsByReservoir(),
-      true // show chunk boundaries
+      true, // show chunk boundaries
     );
 
     this.renderWaterLayer(gameState.getBasins());
 
     this.renderHighlightLayer(
-      gameState.getBasinManager(), 
-      gameState.getHighlightedBasin()
+      gameState.getBasinManager(),
+      gameState.getHighlightedBasin(),
     );
 
     this.renderInteractiveLayer(
@@ -473,7 +575,7 @@ export class Renderer {
       selectedReservoirId,
       gameState.getHeights(),
       gameState.getBasins(),
-      uiSettings
+      uiSettings,
     );
 
     // Clear main canvas and reset transform for compositing
@@ -490,7 +592,7 @@ export class Renderer {
 
     // Apply camera transform for UI overlays (these need to move with the camera)
     this.applyCameraTransform();
-    
+
     // Draw UI overlays directly to main canvas (these change frequently)
     this.drawBrushOverlay(brushOverlay, selectedDepth);
     if (brushCenter) {
@@ -499,70 +601,79 @@ export class Renderer {
   }
 
   // Legacy method for backward compatibility
-  drawTerrain(heights, basinManager = null, highlightedBasin = null) {
-    this.markLayerDirty('terrain');
+  drawTerrain(
+    heights: number[][],
+    basinManager: BasinManager | null = null,
+    highlightedBasin: string | null = null,
+  ): void {
+    this.markLayerDirty("terrain");
     this.renderTerrainLayer(heights);
-    
+
     // Handle highlighting if provided (legacy support)
     if (basinManager && highlightedBasin) {
-      this.markLayerDirty('highlight');
+      this.markLayerDirty("highlight");
       this.renderHighlightLayer(basinManager, highlightedBasin);
     }
   }
 
   // Legacy method for backward compatibility
-  drawWater(basins) {
-    this.markLayerDirty('water');
+  drawWater(basins: Map<string, BasinData>): void {
+    this.markLayerDirty("water");
     this.renderWaterLayer(basins);
   }
 
   // Legacy method for backward compatibility
-  drawPumps(_pumps, _selectedReservoirId) {
-    this.markLayerDirty('interactive');
+  drawPumps(_pumps: Pump[], _selectedReservoirId: number | null): void {
+    this.markLayerDirty("interactive");
     // Will be handled in renderInteractiveLayer
   }
 
   // Legacy method for backward compatibility
-  drawPumpConnections(_pumpsByReservoir) {
-    this.markLayerDirty('infrastructure');
+  drawPumpConnections(_pumpsByReservoir: Map<number, Array<Pump & { index: number }>>): void {
+    this.markLayerDirty("infrastructure");
     // Will be handled in renderInfrastructureLayer
   }
 
   // Legacy method for backward compatibility
-  drawChunkBoundaries() {
-    this.markLayerDirty('infrastructure');
+  drawChunkBoundaries(): void {
+    this.markLayerDirty("infrastructure");
     // Will be handled in renderInfrastructureLayer
   }
 
   // Legacy method for backward compatibility
-  drawLabels(_heights, _basins, _pumps, _labelSettings) {
-    this.markLayerDirty('interactive');
+  drawLabels(
+    _heights: number[][],
+    _basins: Map<string, BasinData>,
+    _pumps: Pump[],
+    _labelSettings: LabelSettings,
+  ): void {
+    this.markLayerDirty("interactive");
     // Will be handled in renderInteractiveLayer
   }
 
   // Public methods to mark layers dirty for specific changes
-  onTerrainChanged() {
-    this.markLayerDirty('terrain');
+  onTerrainChanged(): void {
+    this.markLayerDirty("terrain");
   }
 
-  onWaterChanged() {
-    this.markLayerDirty('water');
+  onWaterChanged(): void {
+    this.markLayerDirty("water");
   }
 
-  onPumpsChanged() {
-    this.markLayerDirty('infrastructure');
-    this.markLayerDirty('interactive');
+  onPumpsChanged(): void {
+    this.markLayerDirty("infrastructure");
+    this.markLayerDirty("interactive");
   }
 
-  onLabelsToggled() {
-    this.markLayerDirty('interactive');
+  onLabelsToggled(): void {
+    this.markLayerDirty("interactive");
   }
 
-  onBasinHighlightChanged() {
-    this.markLayerDirty('highlight');
+  onBasinHighlightChanged(): void {
+    this.markLayerDirty("highlight");
   }
 
-  drawBrushOverlay(overlayMap, selectedDepth) {
+  drawBrushOverlay(overlayMap: Map<string, number>, selectedDepth: number): void {
     if (overlayMap.size === 0) return;
 
     // Set overlay style using constants
@@ -571,8 +682,10 @@ export class Renderer {
     this.ctx.lineWidth = this.getScaledLineWidth(UI_CONSTANTS.BRUSH.OVERLAY_LINE_WIDTH);
 
     // Draw overlay tiles
-    for (const [key, _depth] of overlayMap) {
-      const [x, y] = key.split(",").map((n) => parseInt(n));
+    for (const [key] of overlayMap) {
+      const parts = key.split(",");
+      const x = parseInt(parts[0]!);
+      const y = parseInt(parts[1]!);
 
       const tileX = x * CONFIG.TILE_SIZE;
       const tileY = y * CONFIG.TILE_SIZE;
@@ -585,7 +698,7 @@ export class Renderer {
     }
   }
 
-  drawBrushPreview(centerX, centerY, brushSize) {
+  drawBrushPreview(centerX: number, centerY: number, brushSize: number): void {
     if (centerX < 0 || centerY < 0 || centerX >= CONFIG.WORLD_W || centerY >= CONFIG.WORLD_H) {
       return;
     }
@@ -624,31 +737,32 @@ export class Renderer {
 export class LegendRenderer {
   static selectedDepth = 0;
 
-  static createLegend() {
+  static createLegend(): void {
     const legendItems = document.getElementById("legendItems");
-    if (!legendItems) return;
+    const template = document.getElementById("template-legend-item") as HTMLTemplateElement | null;
+    if (!legendItems || !template) return;
 
     legendItems.innerHTML = "";
 
     for (let depth = 0; depth <= CONFIG.MAX_DEPTH; depth++) {
-      const item = document.createElement("div");
-      item.className = CSS_CLASSES.LEGEND_ITEM;
-      item.id = `legend-item-${depth}`;
+      const clone = template.content.cloneNode(true) as DocumentFragment;
+      const item = clone.querySelector(".legend-item") as HTMLElement;
+      const label = clone.querySelector(".legend-label") as HTMLElement;
+      const colorBox = clone.querySelector(".legend-color-box") as HTMLElement;
 
-      const colorBox = document.createElement("div");
-      colorBox.className = CSS_CLASSES.LEGEND_COLOR;
-      colorBox.style.backgroundColor = getHeightColor(depth);
+      if (item && label && colorBox) {
+        item.id = `legend-item-${depth}`;
+        item.classList.add(CSS_CLASSES.LEGEND_ITEM);
+        label.textContent = `${depth}`;
+        colorBox.classList.add(CSS_CLASSES.LEGEND_COLOR);
+        colorBox.style.backgroundColor = getHeightColor(depth);
 
-      const label = document.createElement("span");
-      label.textContent = `${depth}`;
-
-      item.appendChild(label);
-      item.appendChild(colorBox);
-      legendItems.appendChild(item);
+        legendItems.appendChild(clone);
+      }
     }
   }
 
-  static updateSelectedDepth(depth) {
+  static updateSelectedDepth(depth: number): void {
     this.selectedDepth = depth;
 
     // Remove previous selection styling by removing CSS class
