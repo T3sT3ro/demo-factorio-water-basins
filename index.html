@@ -137,9 +137,19 @@
         </div>
       </div>
       <div id="bottomControls">
-        <div id="legend" class="control-box">
-          <h4>Legend</h4>
-          <div id="legendItems"></div>
+        <div id="controls" class="control-box">
+          <h4>Controls</h4>
+          <div id="controlsContent">
+            <div id="depthControls" class="control-section">
+              <div id="depthButtons" class="depth-buttons-grid"></div>
+            </div>
+            <label id="brushControl" class="control-section">
+              Brush Size: <input 
+                type="range" 
+                id="brushSizeSlider"
+              ><span class="value-display" id="brushSizeValue"></span>
+            </label>
+          </div>
         </div>
         <div id="labelControls" class="control-box">
           <h4>Drawing Labels</h4>
@@ -156,14 +166,6 @@
         <div id="insights" class="control-box">
           <h4>Map Status</h4>
           <div class="insights-grid">
-            <div class="insight-item">
-              <span class="insight-label">Zoom:</span>
-              <span id="zoomValue">100%</span>
-            </div>
-            <div class="insight-item">
-              <span class="insight-label">Brush:</span>
-              <span id="brushValue">3</span>
-            </div>
             <div class="insight-item col-span-full">
               <span class="insight-label">Tile:</span>
               <span id="tileInfo">--</span>
@@ -346,6 +348,13 @@
     </dialog>
 
     <!-- Templates for dynamic UI elements -->
+    <template id="template-depth-button">
+      <button class="legend-item" aria-label="Select depth">
+        <span class="legend-label"></span>
+        <div class="legend-color-box"></div>
+      </button>
+    </template>
+
     <template id="template-octave-control">
       <div class="octave-controls">
         <h5 class="octave-title"></h5>
