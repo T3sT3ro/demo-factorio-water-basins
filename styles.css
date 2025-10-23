@@ -307,19 +307,28 @@ main {
   align-items: center;
   font-size: var(--font-size-0);
   gap: var(--size-1);
+  background: none;
+  border: none;
+  padding: var(--size-1);
+  cursor: pointer;
+  transition: all var(--animation-speed-normal) ease;
+
+  &:hover {
+    background-color: rgb(from var(--brand) r g b / 0.1);
+  }
 
   &.legend-item-selected {
     background-color: rgb(from var(--brand) r g b / 0.2);
-    padding-block-end: var(--size-1);
     border-block-end: var(--border-size-3) solid var(--brand);
     font-weight: bold;
   }
 }
 
-.legend-color {
+.legend-color-box {
   inline-size: var(--size-3);
   block-size: var(--size-3);
   border: var(--border-size-1) solid var(--text-1);
+  background-color: var(--legend-color);
 }
 
 .control-item {

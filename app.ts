@@ -2,11 +2,12 @@
 
 import { CONFIG, setupCanvas } from "./modules/config.ts";
 import { GameState } from "./modules/GameState.ts";
-import { LegendRenderer, Renderer } from "./modules/renderer.ts";
+import { Renderer } from "./modules/renderer.ts";
 import { DebugDisplay, NoiseControlUI, UISettings } from "./modules/ui/index.ts";
 import type { DebugDisplayCallbacks } from "./modules/ui/index.ts";
 import { UI_CONSTANTS } from "./modules/constants.ts";
 import { SaveLoadManager } from "./modules/SaveLoadManager.ts";
+import { LegendUI } from "./modules/ui/LegendUI.ts";
 
 interface TileInfo {
   x: number;
@@ -29,6 +30,7 @@ class TilemapWaterPumpingApp {
   private noiseControlUI!: NoiseControlUI;
   private debugDisplay!: DebugDisplay;
   private saveLoadManager!: SaveLoadManager;
+  private legendUI!: LegendUI;
 
   // Brush state
   private brushSize: number;
@@ -118,9 +120,13 @@ class TilemapWaterPumpingApp {
     this.noiseControlUI.setupMainNoiseControls();
     this.noiseControlUI.createOctaveControls();
 
-    // Create legend with selected depth highlight
-    LegendRenderer.createLegend();
-    this.updateLegendSelection();
+    // Initialize legend UI
+    this.legendUI = new LegendUI((depth) => {
+      this.selectedDepth = depth;
+      this.renderer.markLayerDirty("all");
+      this.draw();
+    });
+    this.legendUI.selectDepth(this.selectedDepth);
 
     // Update reservoir controls
     this.updateReservoirControls();
@@ -202,12 +208,8 @@ class TilemapWaterPumpingApp {
 
   private setSelectedDepth(depth: number): void {
     this.selectedDepth = Math.max(0, Math.min(9, depth));
-    this.updateLegendSelection();
+    this.legendUI.selectDepth(this.selectedDepth);
     console.log(`Selected depth: ${this.selectedDepth}`);
-  }
-
-  private updateLegendSelection(): void {
-    LegendRenderer.updateSelectedDepth(this.selectedDepth);
   }
 
   private getBrushTiles(centerX: number, centerY: number): Array<{ x: number; y: number }> {
