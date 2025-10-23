@@ -15,7 +15,7 @@ function generateLetterSequence(index: number): string {
   return result;
 }
 
-interface BasinData {
+export interface BasinData {
   tiles: Set<string>;
   volume: number;
   level: number;
