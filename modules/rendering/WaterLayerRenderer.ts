@@ -3,7 +3,7 @@
 import { CONFIG } from "../config.ts";
 import { BaseLayerRenderer } from "./LayerRenderer.ts";
 import { getWaterColor } from "./ColorUtils.ts";
-import type { CameraController } from "../CameraController.ts";
+import type { CameraController } from "./CameraController.ts";
 
 interface BasinData {
   tiles: Set<string>;

@@ -2,7 +2,7 @@ import { BaseLayerRenderer } from "./LayerRenderer.ts";
 import { CONFIG } from "../config.ts";
 import { UI_CONSTANTS } from "../constants.ts";
 import type { Pump } from "../pumps.ts";
-import type { CameraController } from "../CameraController.ts";
+import type { CameraController } from "./CameraController.ts";
 
 /**
  * Renders infrastructure elements: chunk boundaries and pump connections

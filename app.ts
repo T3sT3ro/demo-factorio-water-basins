@@ -2,7 +2,7 @@
 
 import { CONFIG, setupCanvas } from "./modules/config.ts";
 import { GameState } from "./modules/GameState.ts";
-import { Renderer } from "./modules/renderer.ts";
+import { Renderer } from "./modules/rendering/renderer.ts";
 import { ControlsUI, DebugDisplay, NoiseControlUI, UISettings } from "./modules/ui/index.ts";
 import type { DebugDisplayCallbacks } from "./modules/ui/index.ts";
 import { UI_CONSTANTS } from "./modules/constants.ts";
