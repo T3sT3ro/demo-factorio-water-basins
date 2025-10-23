@@ -555,8 +555,7 @@ class TilemapWaterPumpingApp {
   private updateInsightsDisplay(tileInfo: TileInfo | null = null): void {
     const zoomValue = document.getElementById("zoomValue");
     if (zoomValue) {
-      const zoomPercentage = Math.round(this.renderer.camera.zoom * 100);
-      zoomValue.textContent = `${zoomPercentage}%`;
+      zoomValue.textContent = `${this.renderer.getZoomPercentage()}%`;
     }
 
     const brushValue = document.getElementById("brushValue");
