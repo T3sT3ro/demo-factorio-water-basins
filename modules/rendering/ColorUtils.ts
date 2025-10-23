@@ -31,7 +31,7 @@ export function getWaterColor(waterLevel: number, _maxLevel: number): string {
   return `rgba(${BASE_COLOR}, ${alpha})`;
 }
 
-function interpolateColor(color1: string, color2: string, t: number): string {
+function _interpolateColor(color1: string, color2: string, t: number): string {
   const c1 = parseRgb(color1);
   const c2 = parseRgb(color2);
 

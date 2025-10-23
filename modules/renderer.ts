@@ -1,9 +1,8 @@
 // Rendering and drawing functionality
 
-import { CONFIG } from "./config.ts";
-import { UI_CONSTANTS } from "./constants.ts";
 import type { Pump } from "./pumps.ts";
 import type { BasinManager } from "./basins.ts";
+import { CONFIG } from "./config.ts";
 import { CameraController } from "./CameraController.ts";
 import { LayerManager, type LayerName } from "./rendering/LayerManager.ts";
 import { TerrainLayerRenderer } from "./rendering/TerrainLayerRenderer.ts";
@@ -11,7 +10,7 @@ import { WaterLayerRenderer } from "./rendering/WaterLayerRenderer.ts";
 import { InfrastructureLayerRenderer } from "./rendering/InfrastructureLayerRenderer.ts";
 import { InteractiveLayerRenderer } from "./rendering/InteractiveLayerRenderer.ts";
 import { HighlightLayerRenderer } from "./rendering/HighlightLayerRenderer.ts";
-import { getHeightColor } from "./rendering/ColorUtils.ts";
+import { BrushOverlayRenderer, BrushPreviewRenderer } from "./rendering/BrushRenderer.ts";
 
 export interface LabelSettings {
   showDepthLabels: boolean;
@@ -49,6 +48,10 @@ export class Renderer {
   private interactiveRenderer: InteractiveLayerRenderer;
   private highlightRenderer: HighlightLayerRenderer;
 
+  // Optimized brush rendering
+  private brushOverlayRenderer: BrushOverlayRenderer;
+  private brushPreviewRenderer: BrushPreviewRenderer;
+
   constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     this.canvas = canvas;
     this.ctx = ctx;
@@ -67,6 +70,13 @@ export class Renderer {
     this.infrastructureRenderer = new InfrastructureLayerRenderer();
     this.interactiveRenderer = new InteractiveLayerRenderer();
     this.highlightRenderer = new HighlightLayerRenderer();
+
+    // Initialize brush renderers
+    this.brushOverlayRenderer = new BrushOverlayRenderer(
+      CONFIG.WORLD_W,
+      CONFIG.WORLD_H,
+    );
+    this.brushPreviewRenderer = new BrushPreviewRenderer();
   }
 
   // Mark specific layers as needing updates
@@ -180,15 +190,6 @@ export class Renderer {
     this.layerManager.markClean("highlight");
   }
 
-  // Helper method for UI overlays that need scaled line width
-  private getScaledLineWidth(
-    baseWidth: number = UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.BASE_WIDTH,
-  ): number {
-    const { MIN_WIDTH, SCALE_THRESHOLD } = UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH;
-    const zoom = this.cameraController.getZoom();
-    return zoom < SCALE_THRESHOLD ? Math.max(MIN_WIDTH, baseWidth / zoom) : baseWidth;
-  }
-
   // Optimized render method that uses layered rendering
   renderOptimized(
     gameState: GameState,
@@ -231,10 +232,21 @@ export class Renderer {
     // Apply camera transform for UI overlays (these need to move with the camera)
     this.applyCameraTransform();
 
-    // Draw UI overlays directly to main canvas (these change frequently)
-    this.drawBrushOverlay(brushOverlay, selectedDepth);
+    // Update brush overlay with incremental rendering (only changed tiles)
+    this.brushOverlayRenderer.updateOverlay(brushOverlay, selectedDepth);
+
+    // Composite the overlay canvas (already in world space)
+    this.brushOverlayRenderer.compositeToCanvas(this.ctx);
+
+    // Render brush preview if cursor is active
     if (brushCenter) {
-      this.drawBrushPreview(brushCenter.x, brushCenter.y, brushSize);
+      this.brushPreviewRenderer.render(
+        this.ctx,
+        brushCenter.x,
+        brushCenter.y,
+        brushSize,
+        this.cameraController,
+      );
     }
   }
 
@@ -311,63 +323,7 @@ export class Renderer {
     this.markLayerDirty("highlight");
   }
 
-  drawBrushOverlay(overlayMap: Map<string, number>, selectedDepth: number): void {
-    if (overlayMap.size === 0) return;
-
-    // Set overlay style using constants
-    this.ctx.fillStyle = UI_CONSTANTS.BRUSH.OVERLAY_FILL;
-    this.ctx.strokeStyle = getHeightColor(selectedDepth);
-    this.ctx.lineWidth = this.getScaledLineWidth(UI_CONSTANTS.BRUSH.OVERLAY_LINE_WIDTH);
-
-    // Draw overlay tiles
-    for (const [key] of overlayMap) {
-      const parts = key.split(",");
-      const x = parseInt(parts[0]!);
-      const y = parseInt(parts[1]!);
-
-      const tileX = x * CONFIG.TILE_SIZE;
-      const tileY = y * CONFIG.TILE_SIZE;
-
-      // Fill with semi-transparent white
-      this.ctx.fillRect(tileX, tileY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
-
-      // Stroke with target depth color
-      this.ctx.strokeRect(tileX, tileY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
-    }
-  }
-
-  drawBrushPreview(centerX: number, centerY: number, brushSize: number): void {
-    if (centerX < 0 || centerY < 0 || centerX >= CONFIG.WORLD_W || centerY >= CONFIG.WORLD_H) {
-      return;
-    }
-
-    const radius = Math.floor(brushSize / 2);
-
-    this.ctx.strokeStyle = UI_CONSTANTS.BRUSH.PREVIEW_COLOR;
-    this.ctx.lineWidth = this.getScaledLineWidth(1);
-    this.ctx.setLineDash(UI_CONSTANTS.BRUSH.PREVIEW_DASH);
-
-    // Draw preview tiles
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dy = -radius; dy <= radius; dy++) {
-        const x = centerX + dx;
-        const y = centerY + dy;
-
-        // Check if tile is within world bounds
-        if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-          // For circular brush, check distance
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance <= radius) {
-            const tileX = x * CONFIG.TILE_SIZE;
-            const tileY = y * CONFIG.TILE_SIZE;
-
-            this.ctx.strokeRect(tileX, tileY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
-          }
-        }
-      }
-    }
-
-    // Reset line dash
-    this.ctx.setLineDash([]);
+  clearBrushOverlay(): void {
+    this.brushOverlayRenderer.clear();
   }
 }
