@@ -3,11 +3,10 @@
 import { CONFIG, setupCanvas } from "./modules/config.ts";
 import { GameState } from "./modules/GameState.ts";
 import { Renderer } from "./modules/renderer.ts";
-import { DebugDisplay, NoiseControlUI, UISettings } from "./modules/ui/index.ts";
+import { ControlsUI, DebugDisplay, NoiseControlUI, UISettings } from "./modules/ui/index.ts";
 import type { DebugDisplayCallbacks } from "./modules/ui/index.ts";
 import { UI_CONSTANTS } from "./modules/constants.ts";
 import { SaveLoadManager } from "./modules/SaveLoadManager.ts";
-import { LegendUI } from "./modules/ui/LegendUI.ts";
 
 interface TileInfo {
   x: number;
@@ -30,7 +29,7 @@ class TilemapWaterPumpingApp {
   private noiseControlUI!: NoiseControlUI;
   private debugDisplay!: DebugDisplay;
   private saveLoadManager!: SaveLoadManager;
-  private legendUI!: LegendUI;
+  private controlsUI!: ControlsUI;
 
   // Brush state
   private brushSize: number;
@@ -120,13 +119,19 @@ class TilemapWaterPumpingApp {
     this.noiseControlUI.setupMainNoiseControls();
     this.noiseControlUI.createOctaveControls();
 
-    // Initialize legend UI
-    this.legendUI = new LegendUI((depth) => {
-      this.selectedDepth = depth;
-      this.renderer.onDepthSelectionChanged();
-      this.draw();
-    });
-    this.legendUI.selectDepth(this.selectedDepth);
+    // Initialize controls UI
+    this.controlsUI = new ControlsUI(
+      (depth: number) => {
+        this.selectedDepth = depth;
+        this.renderer.onDepthSelectionChanged();
+        this.draw();
+      },
+      (size: number) => {
+        this.brushSize = size;
+        this.draw();
+      },
+    );
+    this.controlsUI.selectDepth(this.selectedDepth);
 
     // Update reservoir controls
     this.updateReservoirControls();
@@ -208,7 +213,7 @@ class TilemapWaterPumpingApp {
 
   private setSelectedDepth(depth: number): void {
     this.selectedDepth = Math.max(0, Math.min(9, depth));
-    this.legendUI.selectDepth(this.selectedDepth);
+    this.controlsUI.selectDepth(this.selectedDepth);
     console.log(`Selected depth: ${this.selectedDepth}`);
   }
 
@@ -537,8 +542,8 @@ class TilemapWaterPumpingApp {
           UI_CONSTANTS.BRUSH.MIN_SIZE,
           Math.min(UI_CONSTANTS.BRUSH.MAX_SIZE, this.brushSize + delta),
         );
+        this.controlsUI.setBrushSize(this.brushSize);
         console.log(`Brush size: ${this.brushSize}`);
-        this.updateInsightsDisplay();
         this.draw();
       } else if (e.altKey) {
         const delta = e.deltaY > 0 ? -1 : 1;
@@ -557,16 +562,6 @@ class TilemapWaterPumpingApp {
   }
 
   private updateInsightsDisplay(tileInfo: TileInfo | null = null): void {
-    const zoomValue = document.getElementById("zoomValue");
-    if (zoomValue) {
-      zoomValue.textContent = `${this.renderer.getZoomPercentage()}%`;
-    }
-
-    const brushValue = document.getElementById("brushValue");
-    if (brushValue) {
-      brushValue.textContent = this.brushSize.toString();
-    }
-
     const tileInfoEl = document.getElementById("tileInfo");
     if (tileInfoEl) {
       if (tileInfo) {
