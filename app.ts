@@ -123,7 +123,7 @@ class TilemapWaterPumpingApp {
     // Initialize legend UI
     this.legendUI = new LegendUI((depth) => {
       this.selectedDepth = depth;
-      this.renderer.markLayerDirty("all");
+      this.renderer.onDepthSelectionChanged();
       this.draw();
     });
     this.legendUI.selectDepth(this.selectedDepth);

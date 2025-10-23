@@ -4,7 +4,7 @@ import type { Pump } from "./pumps.ts";
 import type { BasinManager } from "./basins.ts";
 import { CONFIG } from "./config.ts";
 import { CameraController } from "./CameraController.ts";
-import { LayerManager, type LayerName } from "./rendering/LayerManager.ts";
+import { LayerManager } from "./rendering/LayerManager.ts";
 import { TerrainLayerRenderer } from "./rendering/TerrainLayerRenderer.ts";
 import { WaterLayerRenderer } from "./rendering/WaterLayerRenderer.ts";
 import { InfrastructureLayerRenderer } from "./rendering/InfrastructureLayerRenderer.ts";
@@ -79,21 +79,6 @@ export class Renderer {
     this.brushPreviewRenderer = new BrushPreviewRenderer();
   }
 
-  // Mark specific layers as needing updates
-  markLayerDirty(layer: LayerName | "all"): void {
-    this.layerManager.markDirty(layer);
-  }
-
-  // Apply camera transformation to main context
-  applyCameraTransform(): void {
-    this.cameraController.applyTransform(this.ctx);
-  }
-
-  // Reset camera transformation
-  resetTransform(): void {
-    this.cameraController.resetTransform(this.ctx);
-  }
-
   // Convert screen coordinates to world coordinates
   screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
     return this.cameraController.screenToWorld(screenX, screenY);
@@ -109,23 +94,12 @@ export class Renderer {
     this.cameraController.zoomAt(screenX, screenY, zoomFactor);
   }
 
-  // Get current zoom level
-  getZoom(): number {
-    return this.cameraController.getZoom();
-  }
-
   // Get zoom percentage for UI display
   getZoomPercentage(): number {
     return this.cameraController.getZoomPercentage();
   }
 
-  clear(): void {
-    this.resetTransform();
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.applyCameraTransform();
-  }
-
-  renderTerrainLayer(heights: number[][]): void {
+  private renderTerrainLayer(heights: number[][]): void {
     if (!this.layerManager.isDirty("terrain")) return;
 
     const terrainLayer = this.layerManager.getLayer("terrain");
@@ -135,7 +109,7 @@ export class Renderer {
     this.layerManager.markClean("terrain");
   }
 
-  renderInfrastructureLayer(
+  private renderInfrastructureLayer(
     pumpsByReservoir: Map<number, Array<Pump & { index: number }>>,
     showChunkBoundaries: boolean,
   ): void {
@@ -148,7 +122,7 @@ export class Renderer {
     this.layerManager.markClean("infrastructure");
   }
 
-  renderWaterLayer(basins: Map<string, BasinData>): void {
+  private renderWaterLayer(basins: Map<string, BasinData>): void {
     if (!this.layerManager.isDirty("water")) return;
 
     const waterLayer = this.layerManager.getLayer("water");
@@ -158,7 +132,7 @@ export class Renderer {
     this.layerManager.markClean("water");
   }
 
-  renderInteractiveLayer(
+  private renderInteractiveLayer(
     pumps: Pump[],
     selectedReservoirId: number | null,
     heights: number[][],
@@ -180,7 +154,10 @@ export class Renderer {
     this.layerManager.markClean("interactive");
   }
 
-  renderHighlightLayer(basinManager: BasinManager | null, highlightedBasin: string | null): void {
+  private renderHighlightLayer(
+    basinManager: BasinManager | null,
+    highlightedBasin: string | null,
+  ): void {
     if (!this.layerManager.isDirty("highlight")) return;
 
     const highlightLayer = this.layerManager.getLayer("highlight");
@@ -224,13 +201,13 @@ export class Renderer {
     );
 
     // Clear main canvas and reset transform for compositing
-    this.resetTransform();
+    this.cameraController.resetTransform(this.ctx);
 
     // Composite all layers to main canvas in hardcoded order
     this.layerManager.compositeToMain();
 
     // Apply camera transform for UI overlays (these need to move with the camera)
-    this.applyCameraTransform();
+    this.cameraController.applyTransform(this.ctx);
 
     // Update brush overlay with incremental rendering (only changed tiles)
     this.brushOverlayRenderer.updateOverlay(brushOverlay, selectedDepth);
@@ -250,77 +227,30 @@ export class Renderer {
     }
   }
 
-  // Legacy method for backward compatibility
-  drawTerrain(
-    heights: number[][],
-    basinManager: BasinManager | null = null,
-    highlightedBasin: string | null = null,
-  ): void {
-    this.markLayerDirty("terrain");
-    this.renderTerrainLayer(heights);
-
-    // Handle highlighting if provided (legacy support)
-    if (basinManager && highlightedBasin) {
-      this.markLayerDirty("highlight");
-      this.renderHighlightLayer(basinManager, highlightedBasin);
-    }
-  }
-
-  // Legacy method for backward compatibility
-  drawWater(basins: Map<string, BasinData>): void {
-    this.markLayerDirty("water");
-    this.renderWaterLayer(basins);
-  }
-
-  // Legacy method for backward compatibility
-  drawPumps(_pumps: Pump[], _selectedReservoirId: number | null): void {
-    this.markLayerDirty("interactive");
-    // Will be handled in renderInteractiveLayer
-  }
-
-  // Legacy method for backward compatibility
-  drawPumpConnections(_pumpsByReservoir: Map<number, Array<Pump & { index: number }>>): void {
-    this.markLayerDirty("infrastructure");
-    // Will be handled in renderInfrastructureLayer
-  }
-
-  // Legacy method for backward compatibility
-  drawChunkBoundaries(): void {
-    this.markLayerDirty("infrastructure");
-    // Will be handled in renderInfrastructureLayer
-  }
-
-  // Legacy method for backward compatibility
-  drawLabels(
-    _heights: number[][],
-    _basins: Map<string, BasinData>,
-    _pumps: Pump[],
-    _labelSettings: LabelSettings,
-  ): void {
-    this.markLayerDirty("interactive");
-    // Will be handled in renderInteractiveLayer
-  }
-
-  // Public methods to mark layers dirty for specific changes
+  // Layer state management - mark layers dirty when content changes
   onTerrainChanged(): void {
-    this.markLayerDirty("terrain");
+    this.layerManager.markDirty("terrain");
   }
 
   onWaterChanged(): void {
-    this.markLayerDirty("water");
+    this.layerManager.markDirty("water");
   }
 
   onPumpsChanged(): void {
-    this.markLayerDirty("infrastructure");
-    this.markLayerDirty("interactive");
+    this.layerManager.markDirty("infrastructure");
+    this.layerManager.markDirty("interactive");
   }
 
   onLabelsToggled(): void {
-    this.markLayerDirty("interactive");
+    this.layerManager.markDirty("interactive");
   }
 
   onBasinHighlightChanged(): void {
-    this.markLayerDirty("highlight");
+    this.layerManager.markDirty("highlight");
+  }
+
+  onDepthSelectionChanged(): void {
+    this.layerManager.markDirty("all");
   }
 
   clearBrushOverlay(): void {
