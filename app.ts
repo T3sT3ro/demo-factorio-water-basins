@@ -257,6 +257,7 @@ class TilemapWaterPumpingApp {
     }
 
     this.brushOverlay.clear();
+    this.renderer.clearBrushOverlay();
 
     this.gameState.revalidateMap();
     this.renderer.onTerrainChanged();
@@ -456,6 +457,7 @@ class TilemapWaterPumpingApp {
       if (e.button === 0) {
         this.isDrawing = true;
         this.brushOverlay.clear();
+        this.renderer.clearBrushOverlay();
         this.updateBrushOverlay(mx, my);
         this.gameState.setSelectedReservoir(null);
         this.renderer.onPumpsChanged();
