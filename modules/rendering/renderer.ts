@@ -1,16 +1,16 @@
 // Rendering and drawing functionality
 
-import type { Pump } from "./pumps.ts";
-import type { BasinManager } from "./basins.ts";
-import { CONFIG } from "./config.ts";
+import type { Pump } from "../pumps.ts";
+import type { BasinManager } from "../basins.ts";
+import { CONFIG } from "../config.ts";
 import { CameraController } from "./CameraController.ts";
-import { LayerManager } from "./rendering/LayerManager.ts";
-import { TerrainLayerRenderer } from "./rendering/TerrainLayerRenderer.ts";
-import { WaterLayerRenderer } from "./rendering/WaterLayerRenderer.ts";
-import { InfrastructureLayerRenderer } from "./rendering/InfrastructureLayerRenderer.ts";
-import { InteractiveLayerRenderer } from "./rendering/InteractiveLayerRenderer.ts";
-import { HighlightLayerRenderer } from "./rendering/HighlightLayerRenderer.ts";
-import { BrushOverlayRenderer, BrushPreviewRenderer } from "./rendering/BrushRenderer.ts";
+import { LayerManager } from "./LayerManager.ts";
+import { TerrainLayerRenderer } from "./TerrainLayerRenderer.ts";
+import { WaterLayerRenderer } from "./WaterLayerRenderer.ts";
+import { InfrastructureLayerRenderer } from "./InfrastructureLayerRenderer.ts";
+import { InteractiveLayerRenderer } from "./InteractiveLayerRenderer.ts";
+import { HighlightLayerRenderer } from "./HighlightLayerRenderer.ts";
+import { BrushOverlayRenderer, BrushPreviewRenderer } from "./BrushRenderer.ts";
 
 export interface LabelSettings {
   showDepthLabels: boolean;

@@ -3,7 +3,7 @@
 import { CONFIG } from "../config.ts";
 import { BaseLayerRenderer } from "./LayerRenderer.ts";
 import { getHeightColor } from "./ColorUtils.ts";
-import type { CameraController } from "../CameraController.ts";
+import type { CameraController } from "./CameraController.ts";
 
 export class TerrainLayerRenderer extends BaseLayerRenderer {
   private heights: number[][] = [];

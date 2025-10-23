@@ -1,7 +1,7 @@
 import { CONFIG } from "../config.ts";
 import { UI_CONSTANTS } from "../constants.ts";
 import { getHeightColor } from "./ColorUtils.ts";
-import type { CameraController } from "../CameraController.ts";
+import type { CameraController } from "./CameraController.ts";
 
 /**
  * Optimized brush overlay renderer with incremental updates

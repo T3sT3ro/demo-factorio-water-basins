@@ -1,6 +1,6 @@
 // Base interface for layer renderers
 
-import type { CameraController } from "../CameraController.ts";
+import type { CameraController } from "./CameraController.ts";
 
 export interface LayerRenderer {
   render(ctx: CanvasRenderingContext2D, camera: CameraController): void;

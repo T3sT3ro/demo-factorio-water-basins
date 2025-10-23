@@ -1,6 +1,6 @@
 // Camera controller for canvas pan and zoom operations
 
-import { UI_CONSTANTS } from "./constants.ts";
+import { UI_CONSTANTS } from "../constants.ts";
 
 export interface Camera {
   x: number;
