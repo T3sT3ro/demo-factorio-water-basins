@@ -68,68 +68,16 @@ deno task debug
 # Click "inspect" on the target
 ```
 
-### VS Code Launch Configurations
+## TODO:
 
-The project includes several debugging configurations:
+- [ ] optimize brush tools to render tile only once when it's added to the set; do not clear on every frame
+- [ ] Implement an O(n^2) basin flood filling algorithm
+- [ ] Use `<template>` for UI components instead of innerHTML
+- [ ] Add debug visualization for basin calculation algorithm. Use generators to return up-to-date state
 
-- **Launch Chrome against localhost**: Opens Chrome with the app and enables frontend debugging
-- **Debug Deno Server**: Launches the Deno server with debugging enabled
-- **Launch Chrome + Debug Deno**: Compound configuration that starts both server and Chrome
+Got it 👍 — here’s the revised version of the **GitHub Copilot CLI–optimized prompt**, reflecting that **a single Markdown document should be progressively built** as each file is analyzed (not one per file).
+It’s formatted for direct use with:
 
-### Cache Busting
-
-The application includes automatic cache busting to prevent browser caching issues:
-
-1. **Development mode**: Automatic timestamp-based cache busting when running on localhost
-2. **Production mode**: Fixed version numbers for proper caching
-3. **No manual intervention needed**: Cache busting is handled automatically by the HTML
-
-The system automatically detects whether you're running in development (localhost) or production and applies appropriate caching strategies.
-
-### Project Structure
-
+```bash
+gh copilot explain --task "..."
 ```
-├── server.js          # Deno HTTP server with static file serving
-├── deno.json          # Deno configuration and tasks
-├── index.html         # Main HTML with automatic cache busting
-├── app.js             # Main application controller
-├── styles.css         # Application styles
-├── modules/           # ES6 modules
-│   ├── config.js      # Configuration and canvas setup
-│   ├── game.js        # Game state and height generation
-│   ├── renderer.js    # Canvas rendering and camera system
-│   ├── basins.js      # Hierarchical basin detection
-│   ├── labels.js      # Smart label positioning
-│   ├── pumps.js       # Water pump simulation
-│   ├── ui.js          # User interface controls
-│   ├── noise.js       # Terrain generation
-│   └── constants.js   # Shared constants
-└── .vscode/           # VS Code debugging configurations
-    ├── launch.json    # Debug launch configurations
-    └── tasks.json     # VS Code tasks
-```
-
-### Technology Stack
-
-- **Runtime**: Deno 2.4.5+
-- **Frontend**: Vanilla JavaScript ES6 modules
-- **Server**: Deno built-in HTTP server with static file serving
-- **Graphics**: HTML5 Canvas with hardware-accelerated transforms
-- **Debugging**: Chrome DevTools integration
-
-## Technical Details
-
-### Basin Detection Algorithm
-
-The hierarchical basin system properly handles complex terrain:
-
-- **Same-depth connectivity**: Basins connect only to tiles of identical depth
-- **Diagonal blocking**: Land tiles prevent diagonal water connections
-- **Outlet mapping**: Higher depth basins can overflow into lower ones
-- **Tree structure**: Basins form a proper hierarchy for water flow simulation
-
-### Performance Optimizations
-
-- **Integrated highlighting**: Single-pass terrain and highlight rendering
-- **Efficient lookups**: Spatial indexing for O(1) basin queries
-- **Canvas transforms**: Hardware-accelerated pan/zoom using CSS transforms

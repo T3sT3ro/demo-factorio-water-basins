@@ -1,15 +1,47 @@
 // Simple deterministic label positioning system for basin labels only
 
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./config.ts";
+import type { Pump } from "./pumps.ts";
+
+interface Label {
+  id: string;
+  anchorX: number;
+  anchorY: number;
+  labelX: number;
+  labelY: number;
+  text: string;
+  lineLength: number;
+}
+
+interface Obstacle {
+  x: number;
+  y: number;
+  type: string;
+}
+
+interface BasinData {
+  tiles: Set<string>;
+  volume: number;
+  level: number;
+  height: number;
+  outlets: string[];
+}
 
 export class BasinLabelManager {
+  private basinLabels: Map<string, Label>;
+  private lastBasinHash: string | null;
+
   constructor() {
-    this.basinLabels = new Map(); // basinId -> {anchorX, anchorY, labelX, labelY, text}
+    this.basinLabels = new Map();
     this.lastBasinHash = null;
   }
 
   // Generate deterministic positions for basin labels
-  generateBasinLabels(basins, heights, pumps = []) {
+  generateBasinLabels(
+    basins: Map<string, BasinData>,
+    _heights: number[][],
+    pumps: Pump[] = [],
+  ): void {
     const basinHash = this.createBasinHash(basins, pumps);
     if (basinHash === this.lastBasinHash) {
       return; // No change, reuse existing positions
@@ -18,15 +50,16 @@ export class BasinLabelManager {
     this.lastBasinHash = basinHash;
     this.basinLabels.clear();
 
-    const labels = [];
-    const lineLength = 30;
+    const labels: Label[] = [];
 
     // Create pump obstacle positions
-    const obstacles = [];
-    pumps.forEach((pump, index) => {
-      const pumpLabelX = pump.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-      const pumpLabelY = pump.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2 - CONFIG.TILE_SIZE * 2;
-      obstacles.push({ x: pumpLabelX, y: pumpLabelY, type: "pump" });
+    const obstacles: Obstacle[] = [];
+    pumps.forEach(() => {
+      pumps.forEach((pump) => {
+        const pumpLabelX = pump.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+        const pumpLabelY = pump.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2 - CONFIG.TILE_SIZE * 2;
+        obstacles.push({ x: pumpLabelX, y: pumpLabelY, type: "pump" });
+      });
     });
 
     // Create initial label positions
@@ -36,14 +69,17 @@ export class BasinLabelManager {
 
       // Find a representative tile that belongs to this basin (not centroid)
       // Use the first tile, or preferably one close to the center if basin is large
-      let representativeTile;
+      let representativeTile: string;
       if (tiles.length === 1) {
-        representativeTile = tiles[0];
+        representativeTile = tiles[0]!;
       } else {
         // Calculate centroid to find the tile closest to center
-        let sumX = 0, sumY = 0;
+        let sumX = 0,
+          sumY = 0;
         tiles.forEach((tileKey) => {
-          const [x, y] = tileKey.split(",").map(Number);
+          const parts = tileKey.split(",");
+          const x = parseInt(parts[0]!);
+          const y = parseInt(parts[1]!);
           sumX += x;
           sumY += y;
         });
@@ -52,8 +88,11 @@ export class BasinLabelManager {
 
         // Find the actual tile closest to the centroid
         let minDistance = Infinity;
+        representativeTile = tiles[0]!;
         tiles.forEach((tileKey) => {
-          const [x, y] = tileKey.split(",").map(Number);
+          const parts = tileKey.split(",");
+          const x = parseInt(parts[0]!);
+          const y = parseInt(parts[1]!);
           const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
           if (distance < minDistance) {
             minDistance = distance;
@@ -62,7 +101,9 @@ export class BasinLabelManager {
         });
       }
 
-      const [tileX, tileY] = representativeTile.split(",").map(Number);
+      const parts = representativeTile.split(",");
+      const tileX = parseInt(parts[0]!);
+      const tileY = parseInt(parts[1]!);
       const anchorX = tileX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
       const anchorY = tileY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
 
@@ -86,14 +127,15 @@ export class BasinLabelManager {
       let moved = false;
 
       for (let i = 0; i < labels.length; i++) {
-        const label = labels[i];
-        let pushX = 0, pushY = 0;
+        const label = labels[i]!;
+        let pushX = 0,
+          pushY = 0;
 
         // Repulsion from other basin labels
         for (let j = 0; j < labels.length; j++) {
           if (i === j) continue;
 
-          const other = labels[j];
+          const other = labels[j]!;
           const dx = label.labelX - other.labelX;
           const dy = label.labelY - other.labelY;
           const distance = Math.sqrt(dx * dx + dy * dy);
@@ -111,7 +153,7 @@ export class BasinLabelManager {
         for (let j = 0; j < labels.length; j++) {
           if (i === j) continue;
 
-          const other = labels[j];
+          const other = labels[j]!;
           const dx = label.labelX - other.labelX;
           const dy = label.labelY - other.labelY;
           const distance = Math.sqrt(dx * dx + dy * dy);
@@ -191,7 +233,13 @@ export class BasinLabelManager {
   }
 
   // Draw basin labels with connecting lines
-  draw(ctx, basins, heights, pumps = [], zoom = 1) {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    basins: Map<string, BasinData>,
+    heights: number[][],
+    pumps: Pump[] = [],
+    zoom: number = 1,
+  ): void {
     this.generateBasinLabels(basins, heights, pumps);
 
     if (this.basinLabels.size === 0) return;
@@ -230,14 +278,14 @@ export class BasinLabelManager {
       // Get the height at the center to determine text color
       const centerX = Math.round(label.anchorX / CONFIG.TILE_SIZE);
       const centerY = Math.round(label.anchorY / CONFIG.TILE_SIZE);
-      const centerHeight = heights[centerY] ? heights[centerY][centerX] : 0;
+      const centerHeight = heights[centerY] ? heights[centerY]![centerX] : 0;
 
       // Choose semi-transparent text color based on background
-      let textColor;
+      let textColor: string;
       if (centerHeight === 0) {
         textColor = "rgba(255, 255, 255, 0.9)";
       } else {
-        const grayValue = Math.floor(220 - (centerHeight / CONFIG.MAX_DEPTH) * 180);
+        const grayValue = Math.floor(220 - (centerHeight! / CONFIG.MAX_DEPTH) * 180);
         if (grayValue > 130) {
           textColor = "rgba(0, 0, 0, 0.8)";
         } else {
@@ -250,7 +298,7 @@ export class BasinLabelManager {
     });
   }
 
-  createBasinHash(basins, pumps = []) {
+  private createBasinHash(basins: Map<string, BasinData>, pumps: Pump[] = []): string {
     // Create hash to detect basin and pump changes
     let hash = `count:${basins.size}`;
     basins.forEach((basin, id) => {
@@ -266,7 +314,7 @@ export class BasinLabelManager {
     return hash;
   }
 
-  hashString(str) {
+  private hashString(str: string): number {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);

@@ -47,10 +47,10 @@ export const UI_CONSTANTS = {
       TERRAIN: {
         SURFACE: "rgb(139, 69, 19)", // Brown for surface (depth 0)
         DEPTH_LIGHT_GRAY: 220, // Light gray value for shallow water
-        DEPTH_DARK_GRAY: 40,   // Dark gray value for deep water  
+        DEPTH_DARK_GRAY: 40, // Dark gray value for deep water
         DEPTH_GRAY_RANGE: 180, // Range between light and dark gray
       },
-      
+
       WATER: {
         BASE_COLOR: "50,120,200", // RGB values for water (used in rgba)
         MIN_ALPHA: 0.12,
@@ -64,26 +64,26 @@ export const UI_CONSTANTS = {
       },
 
       PUMPS: {
-        INLET: "rgba(200, 0, 0, 0.7)",     // Red for inlet pumps
-        OUTLET: "rgba(0, 255, 0, 0.7)",   // Green for outlet pumps  
+        INLET: "rgba(200, 0, 0, 0.7)", // Red for inlet pumps
+        OUTLET: "rgba(0, 255, 0, 0.7)", // Green for outlet pumps
         SELECTED_HIGHLIGHT: "rgba(255, 255, 0, 0.5)", // Yellow highlight for selected reservoir
-        
+
         // Solid colors for labels
         INLET_LABEL: "red",
         OUTLET_LABEL: "green",
       },
 
       BASIN_HIGHLIGHT: {
-        FILL: "rgba(255, 255, 0, 0.5)",   // Yellow fill for highlighted basins
-        STROKE: "orange",                 // Orange outline for highlighted basins
+        FILL: "rgba(255, 255, 0, 0.5)", // Yellow fill for highlighted basins
+        STROKE: "orange", // Orange outline for highlighted basins
       },
 
       LABELS: {
-        TEXT_LIGHT_BG: "black",    // Text color on light backgrounds
-        TEXT_DARK_BG: "white",     // Text color on dark backgrounds
-        STROKE_LIGHT_BG: "white",  // Text stroke on light backgrounds
-        STROKE_DARK_BG: "black",   // Text stroke on dark backgrounds
-        GRAY_THRESHOLD: 130,       // Threshold for switching text colors
+        TEXT_LIGHT_BG: "black", // Text color on light backgrounds
+        TEXT_DARK_BG: "white", // Text color on dark backgrounds
+        STROKE_LIGHT_BG: "white", // Text stroke on light backgrounds
+        STROKE_DARK_BG: "black", // Text stroke on dark backgrounds
+        GRAY_THRESHOLD: 130, // Threshold for switching text colors
       },
     },
 
@@ -94,9 +94,9 @@ export const UI_CONSTANTS = {
         MIN_SIZE: 8,
         MAX_SIZE: 16,
         SCALE_THRESHOLD_MIN: 0.5, // Below this zoom, scale font
-        SCALE_THRESHOLD_MAX: 2,   // Above this zoom, cap font size
+        SCALE_THRESHOLD_MAX: 2, // Above this zoom, cap font size
       },
-      
+
       LINE_WIDTH: {
         BASE_WIDTH: 1,
         MIN_WIDTH: 0.5,
@@ -107,18 +107,18 @@ export const UI_CONSTANTS = {
       },
 
       PUMP: {
-        RADIUS_MULTIPLIER: 1,    // Multiplier for pump circle radius (times TILE_SIZE)
+        RADIUS_MULTIPLIER: 1, // Multiplier for pump circle radius (times TILE_SIZE)
         HIGHLIGHT_RADIUS_MULTIPLIER: 1.8, // Multiplier for highlighted pump radius
-        LABEL_Y_OFFSET_MULTIPLIER: -2,    // Y offset for pump labels (times TILE_SIZE)
+        LABEL_Y_OFFSET_MULTIPLIER: -2, // Y offset for pump labels (times TILE_SIZE)
       },
     },
 
     // Line patterns
     PATTERNS: {
       PUMP_CONNECTIONS: {
-        DASH_NORMAL: [5, 3],  // Dash pattern for normal zoom
+        DASH_NORMAL: [5, 3], // Dash pattern for normal zoom
         DASH_ZOOMED_OUT: [10, 6], // Dash pattern for zoomed out view
-        DASH_THRESHOLD: 0.5,  // Zoom threshold for switching patterns
+        DASH_THRESHOLD: 0.5, // Zoom threshold for switching patterns
       },
     },
   },
@@ -170,4 +170,3 @@ export const CSS_CLASSES = {
   CONTROL_ITEM: "control-item",
   CONTROL_BOX: "control-box",
 };
-

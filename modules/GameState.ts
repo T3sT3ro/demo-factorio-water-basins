@@ -1,21 +1,85 @@
 // Game state management and main game logic
 
-import { CONFIG } from "./config.js";
-import { HeightGenerator } from "./noise.js";
-import { BasinManager } from "./basins.js";
-import { PumpManager, ReservoirManager } from "./pumps.js";
+import { CONFIG } from "./config.ts";
+import { HeightGenerator } from "./noise/index.ts";
+import type { NoiseSettings } from "./noise/NoiseSettings.ts";
+import { BasinManager } from "./basins.ts";
+import { PumpManager, ReservoirManager } from "./pumps.ts";
+
+interface Reservoir {
+  id: number;
+  volume: number;
+}
+
+interface PumpSaveData {
+  x: number;
+  y: number;
+  mode: "inlet" | "outlet";
+  reservoirId: number;
+}
+
+interface SaveData {
+  version: string;
+  timestamp: string;
+  encodingOptions: {
+    heightEncoding: string;
+    basinEncoding: string;
+  };
+  currentSeed: number;
+  heights: CompressedHeights;
+  tickCounter: number;
+  noiseSettings: NoiseSettings;
+  basins: CompressedBasins;
+  pumps: PumpSaveData[];
+  reservoirs: Reservoir[];
+}
+
+interface CompressedHeights {
+  format: "2d_array" | "rle" | "base64_packed";
+  width: number;
+  height: number;
+  data: string;
+}
+
+interface CompressedBasinIdMap {
+  format: "string_rows" | "rle_basin_ids";
+  data: string;
+}
+
+interface BasinTreeNode {
+  height: number;
+  volume: number;
+  level: number;
+  tileCount: number;
+  children: string[];
+}
+
+interface CompressedBasins {
+  format: "optimized_v2" | "optimized_v1";
+  width: number;
+  height: number;
+  basinIdMap: CompressedBasinIdMap;
+  basinData: Record<string, BasinTreeNode>;
+  basinTree?: Record<string, { height: number; outlets: string[] }>;
+  basinMetadata?: Record<string, { volume: number; level: number }>;
+}
 
 export class GameState {
+  heightGenerator: HeightGenerator;
+  basinManager: BasinManager;
+  reservoirManager: ReservoirManager;
+  pumpManager: PumpManager;
+  tickCounter: number;
+  currentSeed: number;
+  heights: number[][];
+
   constructor() {
     this.heightGenerator = new HeightGenerator(CONFIG.WORLD_W, CONFIG.WORLD_H, CONFIG.MAX_DEPTH);
     this.basinManager = new BasinManager();
     this.reservoirManager = new ReservoirManager();
     this.pumpManager = new PumpManager(this.reservoirManager, this.basinManager);
 
-    // Initialize tick counter
     this.tickCounter = 0;
-
-    // Track current seed for noise regeneration
     this.currentSeed = 0;
 
     // Initialize terrain
@@ -24,15 +88,14 @@ export class GameState {
   }
 
   // Terrain operations
-  randomizeHeights() {
+  randomizeHeights(): void {
     this.currentSeed = Math.random() * 1000;
     console.log("Randomized heights with seed:", this.currentSeed);
     this.heights = this.heightGenerator.generate(this.currentSeed);
     this.recomputeAll();
   }
 
-  // Regenerate terrain with current seed but updated noise settings
-  regenerateWithCurrentSettings() {
+  regenerateWithCurrentSettings(): void {
     performance.mark("height-generation-start");
     this.heights = this.heightGenerator.generate(this.currentSeed);
     performance.mark("height-generation-end");
@@ -43,120 +106,115 @@ export class GameState {
     performance.mark("basin-computation-end");
     performance.measure("Basin Computation", "basin-computation-start", "basin-computation-end");
 
-    // Log the detailed timing
     const measures = performance.getEntriesByType("measure");
-    const recentMeasures = measures.slice(-2); // Get the 2 most recent measures
+    const recentMeasures = measures.slice(-2);
     recentMeasures.forEach((measure) => {
       console.log(`  └─ ${measure.name}: ${measure.duration.toFixed(2)}ms`);
     });
   }
 
-  setDepthAt(x, y, depth) {
+  setDepthAt(x: number, y: number, depth: number): void {
     if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-      this.heights[y][x] = Math.max(0, Math.min(CONFIG.MAX_DEPTH, depth));
+      this.heights[y]![x] = Math.max(0, Math.min(CONFIG.MAX_DEPTH, depth));
       this.recomputeAll();
     }
   }
 
-  // Batch version that doesn't recompute immediately - for brush painting
-  setDepthAtBatch(x, y, depth) {
+  setDepthAtBatch(x: number, y: number, depth: number): void {
     if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-      this.heights[y][x] = Math.max(0, Math.min(CONFIG.MAX_DEPTH, depth));
+      this.heights[y]![x] = Math.max(0, Math.min(CONFIG.MAX_DEPTH, depth));
     }
   }
 
-  // Call this after batch operations to recompute basins once
-  revalidateMap() {
+  revalidateMap(): void {
     this.recomputeAll();
   }
 
-  increaseDepthAt(x, y) {
+  increaseDepthAt(x: number, y: number): void {
     if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-      this.heights[y][x] = Math.min(CONFIG.MAX_DEPTH, this.heights[y][x] + 1);
+      this.heights[y]![x] = Math.min(CONFIG.MAX_DEPTH, this.heights[y]![x]! + 1);
       this.recomputeAll();
     }
   }
 
-  decreaseDepthAt(x, y) {
+  decreaseDepthAt(x: number, y: number): void {
     if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-      this.heights[y][x] = Math.max(0, this.heights[y][x] - 1);
+      this.heights[y]![x] = Math.max(0, this.heights[y]![x]! - 1);
       this.recomputeAll();
     }
   }
 
-  setToMinNeighborHeight(x, y) {
+  setToMinNeighborHeight(x: number, y: number): void {
     if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
       const minHeight = this.getMinNeighborHeight(x, y);
-      this.heights[y][x] = minHeight;
+      this.heights[y]![x] = minHeight;
       this.recomputeAll();
     }
   }
 
-  getMinNeighborHeight(x, y) {
-    let minHeight = CONFIG.MAX_DEPTH + 1; // Start with impossible high value
-    const neighbors = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
+  getMinNeighborHeight(x: number, y: number): number {
+    let minHeight = CONFIG.MAX_DEPTH + 1;
+    const neighbors: [number, number][] = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
 
-    for (let [nx, ny] of neighbors) {
+    for (const [nx, ny] of neighbors) {
       if (nx >= 0 && ny >= 0 && nx < CONFIG.WORLD_W && ny < CONFIG.WORLD_H) {
-        minHeight = Math.min(minHeight, this.heights[ny][nx]);
+        minHeight = Math.min(minHeight, this.heights[ny]![nx]!);
       }
     }
 
-    // If no valid neighbors found, return current height
-    return minHeight <= CONFIG.MAX_DEPTH ? minHeight : this.heights[y][x];
+    return minHeight <= CONFIG.MAX_DEPTH ? minHeight : this.heights[y]![x]!;
   }
 
   // Pump operations
-  addPump(x, y, mode, linkToExisting = false) {
+  addPump(x: number, y: number, mode: "inlet" | "outlet", linkToExisting = false): number | null {
     const reservoirId = this.pumpManager.addPumpAt(x, y, mode, linkToExisting);
-    // Don't auto-select reservoir - let the input field be the source of truth
     return reservoirId;
   }
 
-  linkPumpToReservoir(x, y) {
+  linkPumpToReservoir(x: number, y: number): boolean {
     return this.pumpManager.linkPumpToReservoir(x, y);
   }
 
-  clearPumps() {
+  clearPumps(): void {
     this.pumpManager.clearAll();
   }
 
   // Water operations
-  floodFill(x, y, fillWithWater) {
+  floodFill(x: number, y: number, fillWithWater: boolean): void {
     this.basinManager.floodFill(x, y, fillWithWater);
   }
 
-  clearAllWater() {
+  clearAllWater(): void {
     this.basinManager.clearAllWater();
     this.reservoirManager.clearAllWater();
   }
 
   // Simulation tick
-  tick() {
+  tick(): void {
     this.tickCounter++;
     this.pumpManager.tick();
   }
 
   // Reservoir management
-  setSelectedReservoir(id) {
+  setSelectedReservoir(id: number | null): void {
     this.reservoirManager.setSelectedReservoir(id);
   }
 
-  getSelectedReservoir() {
+  getSelectedReservoir(): number | null {
     return this.reservoirManager.getSelectedReservoir();
   }
 
   // Basin highlighting
-  setHighlightedBasin(basinId) {
+  setHighlightedBasin(basinId: string | null): void {
     this.basinManager.setHighlightedBasin(basinId);
   }
 
-  getHighlightedBasin() {
+  getHighlightedBasin(): string | null {
     return this.basinManager.getHighlightedBasin();
   }
 
   // Utility methods
-  recomputeAll() {
+  recomputeAll(): void {
     performance.mark("basin-manager-compute-start");
     this.basinManager.computeBasins(this.heights);
     performance.mark("basin-manager-compute-end");
@@ -166,149 +224,132 @@ export class GameState {
       "basin-manager-compute-end",
     );
 
-    // Log the timing for this specific operation
     const measures = performance.getEntriesByType("measure");
     const lastMeasure = measures[measures.length - 1];
-    console.log(`    └─ ${lastMeasure.name}: ${lastMeasure.duration.toFixed(2)}ms`);
+    if (lastMeasure) {
+      console.log(`    └─ ${lastMeasure.name}: ${lastMeasure.duration.toFixed(2)}ms`);
+    }
   }
 
   // Getters for rendering
-  getHeights() {
+  getHeights(): number[][] {
     return this.heights;
   }
+
   getBasins() {
     return this.basinManager.basins;
   }
+
   getPumps() {
     return this.pumpManager.getAllPumps();
   }
+
   getReservoirs() {
     return this.reservoirManager.getAllReservoirs();
   }
+
   getPumpsByReservoir() {
     return this.pumpManager.getPumpsByReservoir();
   }
-  getTickCounter() {
+
+  getTickCounter(): number {
     return this.tickCounter;
   }
 
   // Getters for managers (for UI access)
-  getBasinManager() {
+  getBasinManager(): BasinManager {
     return this.basinManager;
   }
-  getReservoirManager() {
+
+  getReservoirManager(): ReservoirManager {
     return this.reservoirManager;
   }
-  getPumpManager() {
+
+  getPumpManager(): PumpManager {
     return this.pumpManager;
   }
-  getHeightGenerator() {
+
+  getHeightGenerator(): HeightGenerator {
     return this.heightGenerator;
   }
 
   // Save/Load functionality
-  exportToJSON(options = {}) {
+  exportToJSON(options: { heightEncoding?: string; basinEncoding?: string } = {}): string {
     const heightEncoding = options.heightEncoding || "2d_array";
     const basinEncoding = options.basinEncoding || "string_rows";
-    
-    const data = {
+
+    const data: SaveData = {
       version: "1.1.0",
       timestamp: new Date().toISOString(),
       encodingOptions: {
         heightEncoding: heightEncoding,
-        basinEncoding: basinEncoding
+        basinEncoding: basinEncoding,
       },
-      // Terrain data
       currentSeed: this.currentSeed,
       heights: this.compressHeights(heightEncoding),
-      // Game state
       tickCounter: this.tickCounter,
-      // Noise settings
-      noiseSettings: {
-        baseFreq: this.heightGenerator.noiseSettings.baseFreq,
-        octaves: this.heightGenerator.noiseSettings.octaves,
-        persistence: this.heightGenerator.noiseSettings.persistence,
-        lacunarity: this.heightGenerator.noiseSettings.lacunarity,
-        offset: this.heightGenerator.noiseSettings.offset,
-        gain: this.heightGenerator.noiseSettings.gain,
-        noiseType: this.heightGenerator.noiseSettings.noiseType,
-        warpStrength: this.heightGenerator.noiseSettings.warpStrength,
-        warpIterations: this.heightGenerator.noiseSettings.warpIterations,
-        octaveSettings: this.heightGenerator.noiseSettings.octaveSettings
-      },
-      // Basin data - optimized storage
+      noiseSettings: this.heightGenerator.getNoiseSettings(),
       basins: this.compressBasins(basinEncoding),
-      // Pump data
-      pumps: this.pumpManager.getAllPumps().map(pump => ({
+      pumps: this.pumpManager.getAllPumps().map((pump) => ({
         x: pump.x,
         y: pump.y,
         mode: pump.mode,
-        reservoirId: pump.reservoirId
+        reservoirId: pump.reservoirId,
       })),
-      // Reservoir data
-      reservoirs: Array.from(this.reservoirManager.getAllReservoirs().entries()).map(([id, reservoir]) => ({
+      reservoirs: Array.from(this.reservoirManager.getAllReservoirs().entries()).map((
+        [id, reservoir],
+      ) => ({
         id: id,
-        volume: reservoir.volume
-      }))
+        volume: reservoir.volume,
+      })),
     };
     return JSON.stringify(data, null, 2);
   }
 
-  importFromJSON(jsonString) {
+  importFromJSON(jsonString: string): boolean {
     try {
-      const data = JSON.parse(jsonString);
-      
-      // Validate version compatibility
+      const data = JSON.parse(jsonString) as SaveData;
+
       if (!data.version) {
         throw new Error("Invalid save data: missing version information");
       }
-      
-      // Import terrain data
+
       if (data.currentSeed !== undefined) {
         this.currentSeed = data.currentSeed;
       }
-      
+
       if (data.heights) {
         this.heights = this.decompressHeights(data.heights);
       } else {
         throw new Error("Invalid save data: missing terrain heights");
       }
-      
-      // Import game state
+
       if (data.tickCounter !== undefined) {
         this.tickCounter = data.tickCounter;
       }
-      
-      // Import noise settings
+
       if (data.noiseSettings) {
         const settings = this.heightGenerator.getNoiseSettings();
         Object.assign(settings, data.noiseSettings);
-        // Update UI controls if they exist
         settings.updateUI();
       }
-      
-      // Clear existing data
+
       this.basinManager = new BasinManager();
       this.reservoirManager = new ReservoirManager();
       this.pumpManager = new PumpManager(this.reservoirManager, this.basinManager);
-      
-      // Recompute basins based on imported heights
+
       this.basinManager.computeBasins(this.heights);
-      
-      // Import basin data
+
       if (data.basins) {
         if (data.basins.format === "optimized_v2" || data.basins.format === "optimized_v1") {
-          // New optimized format
           this.reconstructBasinsFromCompressed(data.basins);
         } else {
-          // Legacy format - fallback
           this.importLegacyBasins(data.basins);
         }
       }
-      
-      // Import reservoirs
+
       if (data.reservoirs) {
-        data.reservoirs.forEach(reservoirData => {
+        data.reservoirs.forEach((reservoirData) => {
           this.reservoirManager.createReservoir(reservoirData.id);
           const reservoir = this.reservoirManager.getReservoir(reservoirData.id);
           if (reservoir) {
@@ -316,36 +357,32 @@ export class GameState {
           }
         });
       }
-      
-      // Import pumps
+
       if (data.pumps) {
-        data.pumps.forEach(pumpData => {
-          // First create/ensure the reservoir exists
+        data.pumps.forEach((pumpData) => {
           if (pumpData.reservoirId) {
             this.reservoirManager.createReservoir(pumpData.reservoirId);
             this.reservoirManager.setSelectedReservoir(pumpData.reservoirId);
           }
-          
-          const _reservoirId = this.pumpManager.addPumpAt(
-            pumpData.x, 
-            pumpData.y, 
-            pumpData.mode || 'auto',
-            true  // Link to existing reservoir
+
+          this.pumpManager.addPumpAt(
+            pumpData.x,
+            pumpData.y,
+            pumpData.mode || "inlet",
+            true,
           );
-          
-          // No additional properties to set since pumping and lastPumpTick don't exist
         });
       }
-      
+
       return true;
     } catch (error) {
       console.error("Failed to import save data:", error);
-      throw new Error(`Failed to import save data: ${error.message}`);
+      throw new Error(`Failed to import save data: ${(error as Error).message}`);
     }
   }
 
   // Compression utilities for better save format
-  compressHeights(encodingType = "2d_array") {
+  compressHeights(encodingType: string): CompressedHeights {
     switch (encodingType) {
       case "rle":
         return this.runLengthEncode(this.heights);
@@ -357,133 +394,133 @@ export class GameState {
           format: "2d_array",
           width: CONFIG.WORLD_W,
           height: CONFIG.WORLD_H,
-          data: this.heights.map(row => row.join('')).join('\n')
+          data: this.heights.map((row) => row.join("")).join("\n"),
         };
     }
   }
 
-  runLengthEncode(heights) {
+  runLengthEncode(heights: number[][]): CompressedHeights {
     const flattened = heights.flat();
     let compressed = "";
     let current = flattened[0];
     let count = 1;
-    
+
     for (let i = 1; i < flattened.length; i++) {
       if (flattened[i] === current) {
         count++;
       } else {
-        // Encode as value:count pairs, skip :1 for singular values
         compressed += (compressed ? "," : "") + current + (count > 1 ? ":" + count : "");
-        current = flattened[i];
+        current = flattened[i]!;
         count = 1;
       }
     }
     compressed += (compressed ? "," : "") + current + (count > 1 ? ":" + count : "");
-    
+
     return {
       format: "rle",
       width: CONFIG.WORLD_W,
       height: CONFIG.WORLD_H,
-      data: compressed
+      data: compressed,
     };
   }
 
-  base64Encode(heights) {
-    // Pack 2 height values (0-9) into each byte for 50% compression
+  base64Encode(heights: number[][]): CompressedHeights {
     const flattened = heights.flat();
-    const bytes = [];
-    
+    const bytes: number[] = [];
+
     for (let i = 0; i < flattened.length; i += 2) {
       const val1 = flattened[i] || 0;
       const val2 = flattened[i + 1] || 0;
       bytes.push((val1 << 4) | val2);
     }
-    
+
     const uint8Array = new Uint8Array(bytes);
-    const base64 = btoa(String.fromCharCode.apply(null, uint8Array));
-    
+    const base64 = btoa(String.fromCharCode(...uint8Array));
+
     return {
       format: "base64_packed",
       width: CONFIG.WORLD_W,
       height: CONFIG.WORLD_H,
-      data: base64
+      data: base64,
     };
   }
 
-  decompressHeights(compressed) {
+  decompressHeights(compressed: CompressedHeights | number[][]): number[][] {
+    if (Array.isArray(compressed)) {
+      return compressed;
+    }
+
     switch (compressed.format) {
       case "2d_array":
-        return compressed.data.split('\n').map(row => 
-          row.split('').map(char => parseInt(char, 10))
+        return compressed.data.split("\n").map((row) =>
+          row.split("").map((char) => parseInt(char, 10))
         );
-        
+
       case "rle":
         return this.runLengthDecode(compressed);
-        
+
       case "base64_packed":
         return this.base64Decode(compressed);
-        
+
       default:
-        // Fallback for old uncompressed format
-        return Array.isArray(compressed) ? compressed : compressed.data;
+        return Array.isArray(compressed) ? compressed : [];
     }
   }
 
-  runLengthDecode(compressed) {
-    const flattened = [];
-    const pairs = compressed.data.split(',');
-    
+  runLengthDecode(compressed: CompressedHeights): number[][] {
+    const flattened: number[] = [];
+    const pairs = compressed.data.split(",");
+
     for (const pair of pairs) {
-      if (pair.includes(':')) {
-        const [valueStr, countStr] = pair.split(':');
-        const value = parseInt(valueStr, 10);
-        const count = parseInt(countStr, 10);
+      if (pair.includes(":")) {
+        const [valueStr, countStr] = pair.split(":");
+        const value = parseInt(valueStr!, 10);
+        const count = parseInt(countStr!, 10);
         for (let i = 0; i < count; i++) {
           flattened.push(value);
         }
       } else {
-        // Single value without count (implicit count of 1)
         const value = parseInt(pair, 10);
         flattened.push(value);
       }
     }
-    
-    const heights = [];
+
+    const heights: number[][] = [];
     for (let y = 0; y < compressed.height; y++) {
       heights[y] = [];
       for (let x = 0; x < compressed.width; x++) {
-        heights[y][x] = flattened[y * compressed.width + x];
+        heights[y]![x] = flattened[y * compressed.width + x]!;
       }
     }
     return heights;
   }
 
-  base64Decode(compressed) {
+  base64Decode(compressed: CompressedHeights): number[][] {
     const binaryString = atob(compressed.data);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    
-    const flattened = [];
+
+    const flattened: number[] = [];
     for (const byte of bytes) {
-      flattened.push((byte >> 4) & 0xF);  // High 4 bits
-      flattened.push(byte & 0xF);         // Low 4 bits
+      flattened.push((byte >> 4) & 0xF);
+      flattened.push(byte & 0xF);
     }
-    
-    const heights = [];
+
+    const heights: number[][] = [];
     for (let y = 0; y < compressed.height; y++) {
       heights[y] = [];
       for (let x = 0; x < compressed.width; x++) {
         const index = y * compressed.width + x;
-        heights[y][x] = index < flattened.length ? flattened[index] : 0;
+        heights[y]![x] = index < flattened.length ? flattened[index]! : 0;
       }
     }
     return heights;
   }
 
   // Basin compression utilities
-  compressBasins(encodingType = "string_rows") {
+  compressBasins(encodingType: string): CompressedBasins {
     const basinIdMap = this.createBasinIdMap();
     const basinTree = this.createBasinTree();
 
@@ -491,28 +528,24 @@ export class GameState {
       format: "optimized_v2",
       width: CONFIG.WORLD_W,
       height: CONFIG.WORLD_H,
-      // 2D array where each cell contains the basin ID for that tile
       basinIdMap: this.compressBasinIdMap(basinIdMap, encodingType),
-      // Flat tree structure with integrated metadata and parent pointers
-      basinData: basinTree
+      basinData: basinTree,
     };
   }
 
-  createBasinIdMap() {
-    // Create 2D array of basin IDs
-    const basinIdMap = [];
+  createBasinIdMap(): string[][] {
+    const basinIdMap: string[][] = [];
     for (let y = 0; y < CONFIG.WORLD_H; y++) {
       basinIdMap[y] = [];
       for (let x = 0; x < CONFIG.WORLD_W; x++) {
-        const basinId = this.basinManager.basinIdOf[y][x];
-        // Convert basin ID to a compact format - use 0 for no basin
-        basinIdMap[y][x] = basinId || "0";
+        const basinId = this.basinManager.basinIdOf[y]![x];
+        basinIdMap[y]![x] = basinId || "0";
       }
     }
     return basinIdMap;
   }
 
-  compressBasinIdMap(basinIdMap, encodingType = "string_rows") {
+  compressBasinIdMap(basinIdMap: string[][], encodingType: string): CompressedBasinIdMap {
     switch (encodingType) {
       case "rle_basin_ids":
         return this.runLengthEncodeBasinIds(basinIdMap);
@@ -520,12 +553,12 @@ export class GameState {
       default:
         return {
           format: "string_rows",
-          data: basinIdMap.map(row => row.join('|')).join('\n')
+          data: basinIdMap.map((row) => row.join("|")).join("\n"),
         };
     }
   }
 
-  runLengthEncodeBasinIds(basinIdMap) {
+  runLengthEncodeBasinIds(basinIdMap: string[][]): CompressedBasinIdMap {
     const flattened = basinIdMap.flat();
     let compressed = "";
     let current = flattened[0];
@@ -535,9 +568,8 @@ export class GameState {
       if (flattened[i] === current) {
         count++;
       } else {
-        // Encode as value:count pairs, skip :1 for singular values
         compressed += (compressed ? "," : "") + current + (count > 1 ? ":" + count : "");
-        current = flattened[i];
+        current = flattened[i]!;
         count = 1;
       }
     }
@@ -545,31 +577,27 @@ export class GameState {
 
     return {
       format: "rle_basin_ids",
-      data: compressed
+      data: compressed,
     };
   }
 
-  createBasinTree() {
-    // Create flat structure with parent pointers instead of nested outlets
-    const tree = {};
+  createBasinTree(): Record<string, BasinTreeNode> {
+    const tree: Record<string, BasinTreeNode> = {};
     this.basinManager.basins.forEach((basin, basinId) => {
       tree[basinId] = {
         height: basin.height,
         volume: basin.volume || 0,
         level: basin.level || 0,
         tileCount: basin.tiles ? basin.tiles.size : 0,
-        // Store child IDs instead of parent IDs for correct tree structure
-        children: [] // Will be filled when processing outlets
+        children: [],
       };
     });
 
-    // Second pass: outlets are children (deeper basins), not parents
     this.basinManager.basins.forEach((basin, basinId) => {
       if (basin.outlets && basin.outlets.length > 0) {
-        basin.outlets.forEach(outletId => {
+        basin.outlets.forEach((outletId) => {
           if (tree[basinId]) {
-            // The outlet (deeper basin) is a child of the current basin
-            tree[basinId].children.push(outletId);
+            tree[basinId]!.children.push(outletId);
           }
         });
       }
@@ -578,84 +606,78 @@ export class GameState {
     return tree;
   }
 
-  createBasinMetadata() {
-    // Metadata is now integrated into the tree structure
-    // This method kept for API compatibility but returns empty object
-    return {};
-  }
-
-  decompressBasins(compressedBasins) {
-    if (!compressedBasins.format) {
-      // Fallback for old format
-      return compressedBasins;
+  decompressBasins(compressedBasins: CompressedBasins | unknown): {
+    basinIdMap: string[][];
+    basinData?: Record<string, BasinTreeNode>;
+    basinTree?: Record<string, { height: number; outlets: string[] }>;
+    basinMetadata?: Record<string, { volume: number; level: number }>;
+  } {
+    const typed = compressedBasins as CompressedBasins;
+    if (!typed.format) {
+      return { basinIdMap: [] };
     }
 
-    if (compressedBasins.format === "optimized_v2") {
+    if (typed.format === "optimized_v2") {
       return {
-        basinIdMap: this.decompressBasinIdMap(compressedBasins.basinIdMap),
-        basinData: compressedBasins.basinData
+        basinIdMap: this.decompressBasinIdMap(typed.basinIdMap),
+        basinData: typed.basinData,
       };
-    } else if (compressedBasins.format === "optimized_v1") {
-      // Handle v1 format
+    } else if (typed.format === "optimized_v1") {
       return {
-        basinIdMap: this.decompressBasinIdMap(compressedBasins.basinIdMap),
-        basinTree: compressedBasins.basinTree,
-        basinMetadata: compressedBasins.basinMetadata
+        basinIdMap: this.decompressBasinIdMap(typed.basinIdMap),
+        ...(typed.basinTree && { basinTree: typed.basinTree }),
+        ...(typed.basinMetadata && { basinMetadata: typed.basinMetadata }),
       };
     }
 
-    return compressedBasins;
+    return { basinIdMap: [] };
   }
 
-  decompressBasinIdMap(compressed) {
+  decompressBasinIdMap(compressed: CompressedBasinIdMap): string[][] {
     switch (compressed.format) {
       case "string_rows":
-        return compressed.data.split('\n').map(row => row.split('|'));
+        return compressed.data.split("\n").map((row) => row.split("|"));
 
       case "rle_basin_ids":
         return this.runLengthDecodeBasinIds(compressed);
 
       default:
-        // Fallback
-        return compressed;
+        return [];
     }
   }
 
-  runLengthDecodeBasinIds(compressed) {
-    const flattened = [];
-    const pairs = compressed.data.split(',');
-    
+  runLengthDecodeBasinIds(compressed: CompressedBasinIdMap): string[][] {
+    const flattened: string[] = [];
+    const pairs = compressed.data.split(",");
+
     for (const pair of pairs) {
-      if (pair.includes(':')) {
-        const [value, countStr] = pair.split(':');
-        const count = parseInt(countStr, 10);
+      if (pair.includes(":")) {
+        const [value, countStr] = pair.split(":");
+        const count = parseInt(countStr!, 10);
         for (let i = 0; i < count; i++) {
-          flattened.push(value);
+          flattened.push(value!);
         }
       } else {
-        // Single value without count (implicit count of 1)
         flattened.push(pair);
       }
     }
 
-    const basinIdMap = [];
+    const basinIdMap: string[][] = [];
     for (let y = 0; y < CONFIG.WORLD_H; y++) {
       basinIdMap[y] = [];
       for (let x = 0; x < CONFIG.WORLD_W; x++) {
-        basinIdMap[y][x] = flattened[y * CONFIG.WORLD_W + x];
+        basinIdMap[y]![x] = flattened[y * CONFIG.WORLD_W + x]!;
       }
     }
     return basinIdMap;
   }
 
-  reconstructBasinsFromCompressed(compressedData) {
+  reconstructBasinsFromCompressed(compressedData: CompressedBasins): void {
     const decompressed = this.decompressBasins(compressedData);
-    
-    // Clear existing basin data
-    this.basinManager.basins.clear();
-    this.basinManager.basinIdOf.forEach(row => row.fill(0));
 
-    // Handle different formats
+    this.basinManager.basins.clear();
+    this.basinManager.basinIdOf.forEach((row) => row.fill(""));
+
     if (compressedData.format === "optimized_v2") {
       this.reconstructBasinsV2(decompressed);
     } else if (compressedData.format === "optimized_v1") {
@@ -663,34 +685,34 @@ export class GameState {
     }
   }
 
-  reconstructBasinsV2(decompressed) {
+  reconstructBasinsV2(decompressed: {
+    basinIdMap: string[][];
+    basinData?: Record<string, BasinTreeNode>;
+  }): void {
     const { basinIdMap, basinData } = decompressed;
+    if (!basinData) return;
 
-    // Reconstruct basinIdOf array
     for (let y = 0; y < CONFIG.WORLD_H; y++) {
       for (let x = 0; x < CONFIG.WORLD_W; x++) {
-        const basinId = basinIdMap[y][x];
-        this.basinManager.basinIdOf[y][x] = basinId === "0" ? 0 : basinId;
+        const basinId = basinIdMap[y]![x]!;
+        this.basinManager.basinIdOf[y]![x] = basinId === "0" ? "" : basinId;
       }
     }
 
-    // Reconstruct basin objects from flat structure
-    Object.keys(basinData).forEach(basinId => {
+    Object.keys(basinData).forEach((basinId) => {
       if (basinId === "0") return;
 
-      const data = basinData[basinId];
-      
-      // Collect tiles for this basin
-      const tiles = new Set();
+      const data = basinData[basinId]!;
+
+      const tiles = new Set<string>();
       for (let y = 0; y < CONFIG.WORLD_H; y++) {
         for (let x = 0; x < CONFIG.WORLD_W; x++) {
-          if (basinIdMap[y][x] === basinId) {
+          if (basinIdMap[y]![x] === basinId) {
             tiles.add(`${x},${y}`);
           }
         }
       }
 
-      // Convert children back to outlets (children are deeper basins that this basin flows to)
       const outlets = data.children || [];
 
       this.basinManager.basins.set(basinId, {
@@ -698,87 +720,85 @@ export class GameState {
         volume: data.volume || 0,
         level: data.level || 0,
         height: data.height || 0,
-        outlets: outlets
+        outlets: outlets,
       });
     });
   }
 
-  reconstructBasinsV1(decompressed) {
+  reconstructBasinsV1(decompressed: {
+    basinIdMap: string[][];
+    basinTree?: Record<string, { height: number; outlets: string[] }>;
+    basinMetadata?: Record<string, { volume: number; level: number }>;
+  }): void {
     const { basinIdMap, basinTree, basinMetadata } = decompressed;
+    if (!basinTree) return;
 
-    // Reconstruct basinIdOf array
     for (let y = 0; y < CONFIG.WORLD_H; y++) {
       for (let x = 0; x < CONFIG.WORLD_W; x++) {
-        const basinId = basinIdMap[y][x];
-        this.basinManager.basinIdOf[y][x] = basinId === "0" ? 0 : basinId;
+        const basinId = basinIdMap[y]![x]!;
+        this.basinManager.basinIdOf[y]![x] = basinId === "0" ? "" : basinId;
       }
     }
 
-    // Reconstruct basin objects
-    Object.keys(basinTree).forEach(basinId => {
+    Object.keys(basinTree).forEach((basinId) => {
       if (basinId === "0") return;
 
-      // Collect tiles for this basin
-      const tiles = new Set();
+      const tiles = new Set<string>();
       for (let y = 0; y < CONFIG.WORLD_H; y++) {
         for (let x = 0; x < CONFIG.WORLD_W; x++) {
-          if (basinIdMap[y][x] === basinId) {
+          if (basinIdMap[y]![x] === basinId) {
             tiles.add(`${x},${y}`);
           }
         }
       }
 
-      const metadata = basinMetadata[basinId] || {};
-      const treeData = basinTree[basinId] || {};
-      
+      const metadata = basinMetadata?.[basinId] || { volume: 0, level: 0 };
+      const treeData = basinTree[basinId] || { height: 0, outlets: [] };
+
       this.basinManager.basins.set(basinId, {
         tiles: tiles,
         volume: metadata.volume || 0,
         level: metadata.level || 0,
         height: treeData.height || 0,
-        outlets: treeData.outlets || []
+        outlets: treeData.outlets || [],
       });
     });
   }
 
-  importLegacyBasins(basinsData) {
-    // Handle old format where basins were stored as individual objects
+  importLegacyBasins(basinsData: unknown): void {
     if (Array.isArray(basinsData)) {
-      basinsData.forEach(basinData => {
+      basinsData.forEach((basinData: { id: string; volume?: number; level?: number }) => {
         const basin = this.basinManager.basins.get(basinData.id);
         if (basin) {
           basin.volume = basinData.volume || 0;
           basin.level = basinData.level || 0;
-          // Note: height and outlets are set during computeBasins
         }
       });
     }
   }
 
   // Size calculation utilities
-  calculateEncodingSizes() {
-    const results = {};
-    
-    // Height encoding options
+  calculateEncodingSizes(): Record<string, number> {
+    const results: Record<string, number> = {};
+
     const heightOptions = ["2d_array", "rle", "base64_packed"];
-    heightOptions.forEach(option => {
+    heightOptions.forEach((option) => {
       try {
         const compressed = this.compressHeights(option);
         const json = JSON.stringify(compressed);
         results[`height_${option}`] = json.length;
-      } catch (_e) {
+      } catch {
         results[`height_${option}`] = Infinity;
       }
     });
 
-    // Basin encoding options
     const basinOptions = ["string_rows", "rle_basin_ids"];
-    basinOptions.forEach(option => {
+    basinOptions.forEach((option) => {
       try {
         const compressed = this.compressBasins(option);
         const json = JSON.stringify(compressed);
         results[`basin_${option}`] = json.length;
-      } catch (_e) {
+      } catch {
         results[`basin_${option}`] = Infinity;
       }
     });
@@ -786,25 +806,27 @@ export class GameState {
     return results;
   }
 
-  getBestEncodingOptions() {
+  getBestEncodingOptions(): {
+    heightEncoding: string;
+    basinEncoding: string;
+    sizes: Record<string, number>;
+  } {
     const sizes = this.calculateEncodingSizes();
-    
-    // Find best height encoding
+
     let bestHeight = "2d_array";
     let minHeightSize = Infinity;
-    ["2d_array", "rle", "base64_packed"].forEach(option => {
-      const size = sizes[`height_${option}`];
+    ["2d_array", "rle", "base64_packed"].forEach((option) => {
+      const size = sizes[`height_${option}`]!;
       if (size < minHeightSize) {
         minHeightSize = size;
         bestHeight = option;
       }
     });
 
-    // Find best basin encoding
     let bestBasin = "string_rows";
     let minBasinSize = Infinity;
-    ["string_rows", "rle_basin_ids"].forEach(option => {
-      const size = sizes[`basin_${option}`];
+    ["string_rows", "rle_basin_ids"].forEach((option) => {
+      const size = sizes[`basin_${option}`]!;
       if (size < minBasinSize) {
         minBasinSize = size;
         bestBasin = option;
@@ -814,7 +836,7 @@ export class GameState {
     return {
       heightEncoding: bestHeight,
       basinEncoding: bestBasin,
-      sizes: sizes
+      sizes: sizes,
     };
   }
 }

@@ -1,61 +1,77 @@
 // Pump and reservoir management system
 
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./config.ts";
+import type { BasinManager } from "./basins.ts";
+
+export interface Reservoir {
+  volume: number;
+}
+
+export interface Pump {
+  x: number;
+  y: number;
+  mode: "inlet" | "outlet";
+  reservoirId: number;
+}
 
 export class ReservoirManager {
+  reservoirs: Map<number, Reservoir>;
+  selectedReservoirId: number | null;
+
   constructor() {
-    this.reservoirs = new Map(); // id -> {volume: number}
-    this.selectedReservoirId = null; // For linking pumps to the same reservoir
+    this.reservoirs = new Map();
+    this.selectedReservoirId = null;
   }
 
-  createReservoir(id = null) {
+  createReservoir(id: number | null = null): number {
     // If no ID provided, find the next available ID starting from 1
-    if (id === null || id <= 0) {
-      id = 1;
-      while (this.reservoirs.has(id)) {
-        id++;
+    let newId = id;
+    if (newId === null || newId <= 0) {
+      newId = 1;
+      while (this.reservoirs.has(newId)) {
+        newId++;
       }
     }
-    
+
     // Only create if it doesn't already exist
-    if (!this.reservoirs.has(id)) {
-      this.reservoirs.set(id, { volume: 0 });
+    if (!this.reservoirs.has(newId)) {
+      this.reservoirs.set(newId, { volume: 0 });
     }
-    return id;
+    return newId;
   }
 
-  getReservoir(id) {
+  getReservoir(id: number): Reservoir | undefined {
     return this.reservoirs.get(id);
   }
 
-  setSelectedReservoir(id) {
+  setSelectedReservoir(id: number | null): void {
     this.selectedReservoirId = id;
   }
 
-  getSelectedReservoir() {
+  getSelectedReservoir(): number | null {
     return this.selectedReservoirId;
   }
 
-  clearAll() {
+  clearAll(): void {
     this.reservoirs.clear();
     this.selectedReservoirId = null;
   }
 
-  clearAllWater() {
+  clearAllWater(): void {
     this.reservoirs.forEach((reservoir) => {
       reservoir.volume = 0;
     });
   }
 
-  exists(id) {
+  exists(id: number): boolean {
     return this.reservoirs.has(id);
   }
 
-  getAllReservoirs() {
+  getAllReservoirs(): Map<number, Reservoir> {
     return this.reservoirs;
   }
 
-  removeReservoir(id) {
+  removeReservoir(id: number): boolean {
     if (this.reservoirs.has(id)) {
       this.reservoirs.delete(id);
       return true;
@@ -65,17 +81,26 @@ export class ReservoirManager {
 }
 
 export class PumpManager {
-  constructor(reservoirManager, basinManager) {
-    this.pumps = []; // {x, y, mode, reservoirId}
+  pumps: Pump[];
+  private reservoirManager: ReservoirManager;
+  private basinManager: BasinManager;
+
+  constructor(reservoirManager: ReservoirManager, basinManager: BasinManager) {
+    this.pumps = [];
     this.reservoirManager = reservoirManager;
     this.basinManager = basinManager;
   }
 
-  addPumpAt(x, y, mode, linkToReservoir = false) {
+  addPumpAt(
+    x: number,
+    y: number,
+    mode: "inlet" | "outlet",
+    linkToReservoir: boolean = false,
+  ): number | null {
     const basinId = this.basinManager.getBasinIdAt(x, y);
     if (!basinId) return null;
 
-    let reservoirId;
+    let reservoirId: number;
     const selectedId = this.reservoirManager.getSelectedReservoir();
 
     if (linkToReservoir && selectedId && this.reservoirManager.exists(selectedId)) {
@@ -94,7 +119,7 @@ export class PumpManager {
     return reservoirId;
   }
 
-  linkPumpToReservoir(x, y) {
+  linkPumpToReservoir(x: number, y: number): boolean {
     // Find existing pump at this location to get its reservoir
     const existingPump = this.pumps.find((p) => p.x === x && p.y === y);
     if (existingPump) {
@@ -106,22 +131,21 @@ export class PumpManager {
     // If no pump at exact location, find the nearest pump within a small radius
     const nearbyPumps = this.pumps.filter((p) => Math.abs(p.x - x) <= 1 && Math.abs(p.y - y) <= 1);
     if (nearbyPumps.length > 0) {
-      this.reservoirManager.setSelectedReservoir(nearbyPumps[0].reservoirId);
-      console.log(
-        `Selected reservoir ${nearbyPumps[0].reservoirId} for linking (from nearby pump)`,
-      );
+      const nearbyPump = nearbyPumps[0]!;
+      this.reservoirManager.setSelectedReservoir(nearbyPump.reservoirId);
+      console.log(`Selected reservoir ${nearbyPump.reservoirId} for linking (from nearby pump)`);
       return true;
     }
 
     return false;
   }
 
-  clearAll() {
+  clearAll(): void {
     this.pumps = [];
     this.reservoirManager.clearAll();
   }
 
-  tick() {
+  tick(): void {
     for (const pump of this.pumps) {
       const basin = this.basinManager.getBasinAt(pump.x, pump.y);
       const reservoir = this.reservoirManager.getReservoir(pump.reservoirId);
@@ -145,11 +169,11 @@ export class PumpManager {
     this.basinManager.updateWaterLevels();
   }
 
-  getAllPumps() {
+  getAllPumps(): Pump[] {
     return this.pumps;
   }
 
-  removePump(index) {
+  removePump(index: number): boolean {
     if (index >= 0 && index < this.pumps.length) {
       this.pumps.splice(index, 1);
       return true;
@@ -157,9 +181,10 @@ export class PumpManager {
     return false;
   }
 
-  removePumpAt(x, y) {
+  removePumpAt(x: number, y: number): boolean {
     for (let i = 0; i < this.pumps.length; i++) {
-      if (this.pumps[i].x === x && this.pumps[i].y === y) {
+      const pump = this.pumps[i];
+      if (pump && pump.x === x && pump.y === y) {
         this.pumps.splice(i, 1);
         return true;
       }
@@ -168,13 +193,13 @@ export class PumpManager {
   }
 
   // Get pumps grouped by reservoir for debugging
-  getPumpsByReservoir() {
-    const pumpsByReservoir = new Map();
+  getPumpsByReservoir(): Map<number, Array<Pump & { index: number }>> {
+    const pumpsByReservoir = new Map<number, Array<Pump & { index: number }>>();
     this.pumps.forEach((pump, index) => {
       if (!pumpsByReservoir.has(pump.reservoirId)) {
         pumpsByReservoir.set(pump.reservoirId, []);
       }
-      pumpsByReservoir.get(pump.reservoirId).push({ ...pump, index });
+      pumpsByReservoir.get(pump.reservoirId)!.push({ ...pump, index });
     });
     return pumpsByReservoir;
   }
