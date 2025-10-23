@@ -24,15 +24,33 @@
   --surface-2-light: var(--gray-1);
   --surface-3-light: var(--gray-2);
   --surface-4-light: var(--gray-3);
+  --border-color-1-light: var(--gray-5);
+  --border-color-2-light: var(--gray-6);
+
+  --brand-dark: var(--orange-6);
+  --text-1-dark: var(--gray-0);
+  --text-2-dark: var(--gray-1);
+  --surface-1-dark: var(--gray-9);
+  --surface-2-dark: var(--gray-10);
+  --surface-3-dark: var(--gray-11);
+  --surface-4-dark: var(--gray-12);
+  --border-color-1-dark: var(--gray-8);
+  --border-color-2-dark: var(--gray-7);
+
+  color-scheme: light dark;
 
   /* semantic colors */
-  --brand: var(--brand-light);
-  --text-1: var(--text-1-light);
-  --text-2: var(--text-2-light);
-  --surface-1: var(--surface-1-light);
-  --surface-2: var(--surface-2-light);
-  --surface-3: var(--surface-3-light);
-  --surface-4: var(--surface-4-light);
+  --brand: light-dark(var(--brand-light), var(--brand-dark));
+  --text-1: light-dark(var(--text-1-light), var(--text-1-dark));
+  --text-2: light-dark(var(--text-2-light), var(--text-2-dark));
+  --surface-1: light-dark(var(--surface-1-light), var(--surface-1-dark));
+  --surface-2: light-dark(var(--surface-2-light), var(--surface-2-dark));
+  --surface-3: light-dark(var(--surface-3-light), var(--surface-3-dark));
+  --surface-4: light-dark(var(--surface-4-light), var(--surface-4-dark));
+  --border-color-1: light-dark(var(--border-color-1-light), var(--border-color-1-dark));
+  --border-color-2: light-dark(var(--border-color-2-light), var(--border-color-2-dark));
+
+  accent-color: var(--brand);
 }
 
 /* Reset to sane sizing model */
@@ -69,7 +87,7 @@ html {
 }
 
 .standard-border {
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-2);
 }
 
@@ -88,7 +106,7 @@ html {
 
 .standard-input {
   padding: var(--size-1);
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-1);
   background: var(--surface-1);
   color: var(--text-1);
@@ -175,7 +193,7 @@ main {
 }
 
 #canvasContainer {
-  border: var(--border-size-1) solid var(--gray-5);
+  border: var(--border-size-1) solid var(--border-color-1);
   max-block-size: 100%;
   overflow: hidden;
 
@@ -193,14 +211,14 @@ main {
   font-family: var(--font-mono);
   font-size: var(--font-size-0);
   inline-size: fit-content;
-  border: var(--border-size-1) solid var(--gray-6);
+  border: var(--border-size-1) solid var(--border-color-1);
 }
 
 .control-box {
   display: flex;
   flex-direction: column;
   padding: var(--control-padding);
-  border: var(--border-size-1) solid var(--gray-5);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-1);
   background: var(--surface-2);
   min-inline-size: min-content;
@@ -233,7 +251,7 @@ main {
 #reservoirInput {
   inline-size: var(--size-9);
   padding: var(--size-1);
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-1);
   background: var(--surface-1);
   color: var(--text-1);
@@ -244,7 +262,7 @@ main {
 #controlsBox h4 {
   margin-block: var(--size-2) var(--size-1);
   padding-block-end: var(--size-1);
-  border-block-end: var(--border-size-1) solid var(--gray-4);
+  border-block-end: var(--border-size-1) solid var(--border-color-1);
   color: var(--text-1);
   font-weight: bold;
 
@@ -327,7 +345,7 @@ main {
 .legend-color-box {
   inline-size: var(--size-3);
   block-size: var(--size-3);
-  border: var(--border-size-1) solid var(--text-1);
+  border: var(--border-size-1) solid var(--border-color-2);
   background-color: var(--legend-color);
 }
 
@@ -346,7 +364,7 @@ main {
   margin-top: var(--size-2);
   margin-bottom: var(--size-1);
   padding-bottom: var(--size-1);
-  border-bottom: var(--border-size-1) solid var(--gray-4);
+  border-bottom: var(--border-size-1) solid var(--border-color-1);
   color: var(--text-1);
   font-weight: bold;
 }
@@ -379,7 +397,7 @@ main {
 .pipe-system-container {
   margin-block-end: var(--size-2);
   padding: var(--size-2);
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-2);
   background-color: var(--surface-1);
 }
@@ -426,7 +444,7 @@ select {
   flex: 1 1 0;
   max-block-size: 100%;
   overflow-y: auto;
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-1);
   background: var(--surface-1);
   padding: var(--size-1);
   position: relative;
@@ -463,7 +481,7 @@ select {
 }
 
 .control-item code {
-  background: var(--gray-4);
+  background: var(--border-color-1);
   padding: var(--size-1) var(--size-3);
   border-radius: var(--radius-2);
   font-family:
@@ -474,7 +492,7 @@ select {
 }
 
 .octave-controls {
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-2);
   padding: var(--size-1);
   margin: var(--size-1) 0;
   background: var(--surface-1);
@@ -512,7 +530,7 @@ select {
   margin: var(--size-2) var(--size-2) 0;
 
   & code {
-    background: var(--gray-4);
+    background: var(--border-color-1);
     padding: var(--size-1) var(--size-2);
     border-radius: var(--radius-2);
     font-family:
@@ -534,7 +552,7 @@ select {
 
   & h4 {
     margin: 0 0 var(--size-2) 0;
-    border-block-end: var(--border-size-1) solid var(--gray-4);
+    border-block-end: var(--border-size-1) solid var(--border-color-1);
     padding-block-end: var(--size-1);
     flex-shrink: 0;
   }
@@ -571,7 +589,7 @@ select {
   min-width: max-content;
 
   &:hover {
-    background-color: var(--gray-4);
+    background-color: var(--border-color-1);
   }
 
   &.highlighted {
@@ -615,7 +633,7 @@ dialog.save-load-modal {
   justify-content: space-between;
   align-items: center;
   padding: var(--size-3);
-  border-block-end: var(--border-size-1) solid var(--gray-5);
+  border-block-end: var(--border-size-1) solid var(--border-color-2);
   background: var(--surface-2);
 
   & h3 {
@@ -652,7 +670,7 @@ dialog.save-load-modal {
 
 .modal-footer {
   padding: var(--size-3);
-  border-block-start: var(--border-size-1) solid var(--gray-5);
+  border-block-start: var(--border-size-1) solid var(--border-color-2);
   background: var(--surface-2);
   text-align: end;
 }
@@ -666,7 +684,7 @@ dialog.save-load-modal {
 
 .load-option,
 .export-option {
-  border: var(--border-size-1) solid var(--gray-5);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-2);
   padding: var(--size-3);
   background: var(--surface-2);
@@ -681,8 +699,9 @@ dialog.save-load-modal {
 .encoding-options {
   margin-block-end: var(--size-4);
   padding: var(--size-3);
-  background-color: var(--gray-1);
+  background-color: var(--surface-1);
   border-radius: var(--radius-2);
+  border: var(--border-size-1) solid var(--border-color-1);
 }
 
 .encoding-section {
@@ -703,15 +722,15 @@ dialog.save-load-modal {
 
   & select {
     padding: var(--size-1) var(--size-2);
-    border: var(--border-size-1) solid var(--gray-4);
+    border: var(--border-size-1) solid var(--border-color-1);
     border-radius: var(--radius-2);
-    background-color: var(--gray-0);
+    background-color: var(--surface-2);
   }
 }
 
 .size-info {
   font-size: var(--font-size-0);
-  color: var(--gray-7);
+  color: var(--text-1);
   font-family: var(--font-mono);
   white-space: nowrap;
   justify-self: start;
@@ -720,7 +739,7 @@ dialog.save-load-modal {
 .total-size-section {
   margin-block-start: var(--size-2);
   padding-block-start: var(--size-2);
-  border-block-start: var(--border-size-1) solid var(--gray-3);
+  border-block-start: var(--border-size-1) solid var(--border-color-2);
   text-align: center;
 
   & span {
@@ -742,7 +761,7 @@ dialog.save-load-modal {
   justify-content: space-between;
   align-items: center;
   padding: var(--size-2);
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-1);
   background: var(--surface-1);
 }
@@ -809,7 +828,7 @@ dialog.save-load-modal {
 #jsonTextInput,
 #exportJsonOutput {
   padding: var(--size-2);
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-1);
   background: var(--surface-1);
   color: var(--text-1);
@@ -836,7 +855,7 @@ dialog.save-load-modal {
 #downloadJsonBtn,
 .saved-map-actions button {
   padding: var(--size-2) var(--size-3);
-  border: var(--border-size-1) solid var(--gray-4);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-1);
   background: var(--surface-1);
   color: var(--text-1);
@@ -891,7 +910,7 @@ dialog.help-modal {
 }
 
 .help-section {
-  border: var(--border-size-1) solid var(--gray-5);
+  border: var(--border-size-1) solid var(--border-color-1);
   border-radius: var(--radius-2);
   padding: var(--size-3);
   background: var(--surface-2);
