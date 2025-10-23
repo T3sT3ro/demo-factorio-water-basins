@@ -5,14 +5,7 @@ import { BasinLabelManager } from "./labels.ts";
 import { CSS_CLASSES, UI_CONSTANTS } from "./constants.ts";
 import type { Pump } from "./pumps.ts";
 import type { BasinManager } from "./basins.ts";
-
-interface Camera {
-  x: number;
-  y: number;
-  zoom: number;
-  minZoom: number;
-  maxZoom: number;
-}
+import { CameraController } from "./CameraController.ts";
 
 interface LayerDirty {
   terrain: boolean;
@@ -63,7 +56,7 @@ export class Renderer {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   basinLabelManager: BasinLabelManager;
-  camera: Camera;
+  cameraController: CameraController;
   private terrainCanvas: HTMLCanvasElement;
   private terrainCtx: CanvasRenderingContext2D;
   private infrastructureCanvas: HTMLCanvasElement;
@@ -81,14 +74,8 @@ export class Renderer {
     this.ctx = ctx;
     this.basinLabelManager = new BasinLabelManager();
 
-    // Camera/viewport system for pan and zoom
-    this.camera = {
-      x: UI_CONSTANTS.RENDERING.CAMERA.INITIAL_X,
-      y: UI_CONSTANTS.RENDERING.CAMERA.INITIAL_Y,
-      zoom: UI_CONSTANTS.RENDERING.CAMERA.INITIAL_ZOOM,
-      minZoom: UI_CONSTANTS.RENDERING.CAMERA.MIN_ZOOM,
-      maxZoom: UI_CONSTANTS.RENDERING.CAMERA.MAX_ZOOM,
-    };
+    // Camera controller for pan and zoom
+    this.cameraController = new CameraController(() => this.markLayerDirty("all"));
 
     // Initialize off-screen canvases for layered rendering
     const layers = this.initializeOffScreenCanvases();
@@ -150,63 +137,47 @@ export class Renderer {
 
   // Apply camera transformation to any context
   private applyCameraTransformToContext(ctx: CanvasRenderingContext2D): void {
-    ctx.setTransform(
-      this.camera.zoom,
-      0,
-      0,
-      this.camera.zoom,
-      -this.camera.x * this.camera.zoom,
-      -this.camera.y * this.camera.zoom,
-    );
+    this.cameraController.applyTransform(ctx);
   }
 
   // Apply camera transformation to main context
   applyCameraTransform(): void {
-    this.applyCameraTransformToContext(this.ctx);
+    this.cameraController.applyTransform(this.ctx);
   }
 
   // Reset camera transformation for any context
   private resetTransformForContext(ctx: CanvasRenderingContext2D): void {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.cameraController.resetTransform(ctx);
   }
 
   // Reset camera transformation
   resetTransform(): void {
-    this.resetTransformForContext(this.ctx);
+    this.cameraController.resetTransform(this.ctx);
   }
 
   // Convert screen coordinates to world coordinates
   screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
-    return {
-      x: screenX / this.camera.zoom + this.camera.x,
-      y: screenY / this.camera.zoom + this.camera.y,
-    };
+    return this.cameraController.screenToWorld(screenX, screenY);
   }
 
   // Pan camera by given offset
   pan(deltaX: number, deltaY: number): void {
-    this.camera.x += deltaX / this.camera.zoom;
-    this.camera.y += deltaY / this.camera.zoom;
-    // All layers need to be redrawn when camera moves
-    this.markLayerDirty("all");
+    this.cameraController.pan(deltaX, deltaY);
   }
 
   // Zoom camera at given point
   zoomAt(screenX: number, screenY: number, zoomFactor: number): void {
-    const worldBefore = this.screenToWorld(screenX, screenY);
+    this.cameraController.zoomAt(screenX, screenY, zoomFactor);
+  }
 
-    this.camera.zoom *= zoomFactor;
-    this.camera.zoom = Math.max(
-      this.camera.minZoom,
-      Math.min(this.camera.maxZoom, this.camera.zoom),
-    );
+  // Get current zoom level
+  getZoom(): number {
+    return this.cameraController.getZoom();
+  }
 
-    const worldAfter = this.screenToWorld(screenX, screenY);
-    this.camera.x += worldBefore.x - worldAfter.x;
-    this.camera.y += worldBefore.y - worldAfter.y;
-
-    // All layers need to be redrawn when camera zooms
-    this.markLayerDirty("all");
+  // Get zoom percentage for UI display
+  getZoomPercentage(): number {
+    return this.cameraController.getZoomPercentage();
   }
 
   clear(): void {
@@ -280,8 +251,8 @@ export class Renderer {
     const scaledLineWidth = this.getScaledLineWidth(
       UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.PUMP_BASE_WIDTH,
     );
-    const dashPattern = this.camera.zoom <
-        UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_THRESHOLD
+    const zoom = this.cameraController.getZoom();
+    const dashPattern = zoom < UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_THRESHOLD
       ? UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_ZOOMED_OUT
       : UI_CONSTANTS.RENDERING.PATTERNS.PUMP_CONNECTIONS.DASH_NORMAL;
 
@@ -320,11 +291,12 @@ export class Renderer {
   ): number {
     const { MIN_SIZE, MAX_SIZE, SCALE_THRESHOLD_MIN, SCALE_THRESHOLD_MAX } =
       UI_CONSTANTS.RENDERING.SCALING.FONT;
+    const zoom = this.cameraController.getZoom();
 
     // Simplified scaling - only scale at extreme zoom levels
-    if (this.camera.zoom < SCALE_THRESHOLD_MIN) {
-      return Math.max(MIN_SIZE, baseFontSize / this.camera.zoom);
-    } else if (this.camera.zoom > SCALE_THRESHOLD_MAX) {
+    if (zoom < SCALE_THRESHOLD_MIN) {
+      return Math.max(MIN_SIZE, baseFontSize / zoom);
+    } else if (zoom > SCALE_THRESHOLD_MAX) {
       return Math.min(MAX_SIZE, baseFontSize);
     }
     return baseFontSize;
@@ -335,11 +307,10 @@ export class Renderer {
     baseWidth: number = UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH.BASE_WIDTH,
   ): number {
     const { MIN_WIDTH, SCALE_THRESHOLD } = UI_CONSTANTS.RENDERING.SCALING.LINE_WIDTH;
+    const zoom = this.cameraController.getZoom();
 
     // Only scale line width at very low zoom levels
-    return this.camera.zoom < SCALE_THRESHOLD
-      ? Math.max(MIN_WIDTH, baseWidth / this.camera.zoom)
-      : baseWidth;
+    return zoom < SCALE_THRESHOLD ? Math.max(MIN_WIDTH, baseWidth / zoom) : baseWidth;
   }
 
   renderWaterLayer(basins: Map<string, BasinData>): void {
@@ -428,7 +399,13 @@ export class Renderer {
 
     // Draw basin labels with smart positioning
     if (labelSettings.showBasinLabels) {
-      this.basinLabelManager.draw(this.interactiveCtx, basins, heights, pumps, this.camera.zoom);
+      this.basinLabelManager.draw(
+        this.interactiveCtx,
+        basins,
+        heights,
+        pumps,
+        this.cameraController.getZoom(),
+      );
     }
 
     // Draw pump labels
