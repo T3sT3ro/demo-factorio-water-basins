@@ -167,8 +167,7 @@ export class Renderer {
     this.layerManager.markClean("highlight");
   }
 
-  // Optimized render method that uses layered rendering
-  renderOptimized(
+  render(
     gameState: GameState,
     uiSettings: LabelSettings,
     selectedReservoirId: number | null,

@@ -390,7 +390,7 @@ main {
   input[type="range"] {
     flex: 1;
   }
-  
+
   .value-display {
     min-inline-size: var(--size-6);
     text-align: end;

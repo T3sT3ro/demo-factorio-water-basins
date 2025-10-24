@@ -1,7 +1,7 @@
 // Game state management and main game logic
 
 import { CONFIG } from "./config.ts";
-import { HeightGenerator } from "./noise/index.ts";
+import { HeightGenerator } from "./noise/NoiseGenerator.ts";
 import type { NoiseSettings } from "./noise/NoiseSettings.ts";
 import { BasinManager } from "./basins.ts";
 import { PumpManager, ReservoirManager } from "./pumps.ts";
