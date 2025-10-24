@@ -7,6 +7,10 @@ import { ControlsUI, DebugDisplay, NoiseControlUI, UISettings } from "./modules/
 import type { DebugDisplayCallbacks } from "./modules/ui/index.ts";
 import { UI_CONSTANTS } from "./modules/constants.ts";
 import { SaveLoadManager } from "./modules/SaveLoadManager.ts";
+import { BrushTool } from "./modules/BrushTool.ts";
+import { UpdateCoordinator } from "./modules/UpdateCoordinator.ts";
+import { InputController } from "./modules/InputController.ts";
+import type { InputCallbacks } from "./modules/InputController.ts";
 
 interface TileInfo {
   x: number;
@@ -31,23 +35,20 @@ class TilemapWaterPumpingApp {
   private saveLoadManager!: SaveLoadManager;
   private controlsUI!: ControlsUI;
 
-  // Brush state
-  private brushSize: number;
+  // Controllers
+  private brushTool!: BrushTool;
+  private updateCoordinator!: UpdateCoordinator;
+  private inputController!: InputController;
+
+  // UI state
   private selectedDepth: number;
-  private brushOverlay: Map<string, number>;
-  private isDrawing: boolean;
-  private brushCenter: { x: number; y: number } | null;
 
   // Tick control state
   private tickTimer: ReturnType<typeof setTimeout> | null;
   private tickInterval: ReturnType<typeof setInterval> | null;
 
   constructor() {
-    this.brushSize = UI_CONSTANTS.BRUSH.MIN_SIZE;
     this.selectedDepth = 0;
-    this.brushOverlay = new Map();
-    this.isDrawing = false;
-    this.brushCenter = null;
     this.tickTimer = null;
     this.tickInterval = null;
   }
@@ -102,10 +103,36 @@ class TilemapWaterPumpingApp {
     // deno-lint-ignore no-explicit-any
     (globalThis as any).saveLoadManager = this.saveLoadManager;
 
+    // Initialize controllers
+    this.brushTool = new BrushTool(UI_CONSTANTS.BRUSH.MIN_SIZE);
+    this.updateCoordinator = new UpdateCoordinator(
+      this.renderer,
+      () => this.draw(),
+      () => this.updateDebugDisplays(),
+    );
+
+    // Setup input callbacks
+    const inputCallbacks: InputCallbacks = {
+      onPaint: (x, y) => this.handlePaint(x, y),
+      onPaintStart: () => this.handlePaintStart(),
+      onPaintEnd: () => this.handlePaintEnd(),
+      onFloodFill: (x, y, fill) => this.handleFloodFill(x, y, fill),
+      onAddPump: (x, y, mode) => this.handleAddPump(x, y, mode),
+      onLinkPump: (x, y) => this.handleLinkPump(x, y),
+      onPickDepth: (x, y) => this.handlePickDepth(x, y),
+      onBrushSizeChange: (delta) => this.handleBrushSizeChange(delta),
+      onDepthChange: (delta) => this.handleDepthChange(delta),
+      onZoom: (screenX, screenY, factor) => this.handleZoom(screenX, screenY, factor),
+      onHover: (x, y) => this.handleHover(x, y),
+      onHoverEnd: () => this.handleHoverEnd(),
+      onClearSelection: () => this.clearReservoirSelection(),
+    };
+
+    this.inputController = new InputController(this.canvas, this.renderer, inputCallbacks);
+
     // Setup callbacks
     this.debugDisplay.setBasinHighlightChangeCallback((_basinId) => {
-      this.renderer.onBasinHighlightChanged();
-      this.draw();
+      this.updateCoordinator.onBasinHighlightChange();
     });
 
     this.initialize();
@@ -114,7 +141,6 @@ class TilemapWaterPumpingApp {
   private initialize(): void {
     // Setup UI controls
     this.setupEventHandlers();
-    this.setupCanvasEventHandlers();
     this.setupKeyboardEventHandlers();
     this.noiseControlUI.setupMainNoiseControls();
     this.noiseControlUI.createOctaveControls();
@@ -123,11 +149,10 @@ class TilemapWaterPumpingApp {
     this.controlsUI = new ControlsUI(
       (depth: number) => {
         this.selectedDepth = depth;
-        this.renderer.onDepthSelectionChanged();
-        this.draw();
+        this.updateCoordinator.onDepthSelectionChange();
       },
       (size: number) => {
-        this.brushSize = size;
+        this.brushTool.setSize(size);
         this.draw();
       },
     );
@@ -151,9 +176,6 @@ class TilemapWaterPumpingApp {
 
     performance.mark("terrain-regeneration-start");
     this.gameState.regenerateWithCurrentSettings();
-    this.renderer.onTerrainChanged();
-    this.renderer.onWaterChanged();
-    this.renderer.onLabelsToggled();
     performance.mark("terrain-regeneration-end");
     performance.measure(
       "Terrain Regeneration",
@@ -162,18 +184,9 @@ class TilemapWaterPumpingApp {
     );
 
     performance.mark("rendering-start");
-    this.draw();
+    this.updateCoordinator.onTerrainChange();
     performance.mark("rendering-end");
     performance.measure("Rendering", "rendering-start", "rendering-end");
-
-    performance.mark("debug-display-update-start");
-    this.updateDebugDisplays();
-    performance.mark("debug-display-update-end");
-    performance.measure(
-      "Debug Display Update",
-      "debug-display-update-start",
-      "debug-display-update-end",
-    );
 
     performance.mark("noise-settings-change-end");
     performance.measure(
@@ -183,21 +196,15 @@ class TilemapWaterPumpingApp {
     );
 
     const measures = performance.getEntriesByType("measure");
-    const recentMeasures = measures.slice(-4);
+    const recentMeasures = measures.slice(-3);
     recentMeasures.forEach((measure) => {
       console.log(`${measure.name}: ${measure.duration.toFixed(2)}ms`);
     });
   }
 
   private onGameStateChanged(): void {
-    this.renderer.onTerrainChanged();
-    this.renderer.onWaterChanged();
-    this.renderer.onPumpsChanged();
-    this.renderer.onLabelsToggled();
-    this.draw();
-    this.updateDebugDisplays();
+    this.updateCoordinator.onFullUpdate();
     this.updateReservoirControls();
-
     this.noiseControlUI.updateUI();
   }
 
@@ -217,58 +224,97 @@ class TilemapWaterPumpingApp {
     console.log(`Selected depth: ${this.selectedDepth}`);
   }
 
-  private getBrushTiles(centerX: number, centerY: number): Array<{ x: number; y: number }> {
-    const tiles: Array<{ x: number; y: number }> = [];
-    const radius = Math.floor(this.brushSize / 2);
-
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dy = -radius; dy <= radius; dy++) {
-        const x = centerX + dx;
-        const y = centerY + dy;
-
-        if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance <= radius) {
-            tiles.push({ x, y });
-          }
-        }
-      }
-    }
-
-    return tiles;
+  // Input event handlers
+  private handlePaint(x: number, y: number): void {
+    this.brushTool.updateOverlay(x, y, this.selectedDepth);
+    this.draw();
   }
 
-  private updateBrushOverlay(centerX: number, centerY: number): void {
-    if (!this.isDrawing) return;
-
-    const tiles = this.getBrushTiles(centerX, centerY);
-
-    for (const tile of tiles) {
-      const key = `${tile.x},${tile.y}`;
-      this.brushOverlay.set(key, this.selectedDepth);
-    }
+  private handlePaintStart(): void {
+    this.brushTool.clearOverlay();
+    this.renderer.clearBrushOverlay();
   }
 
-  private commitBrushChanges(): void {
-    if (this.brushOverlay.size === 0) return;
+  private handlePaintEnd(): void {
+    const overlay = this.brushTool.getOverlay();
+    if (overlay.size === 0) return;
 
-    for (const [key, depth] of this.brushOverlay) {
-      const parts = key.split(",").map((n) => parseInt(n));
-      const x = parts[0];
-      const y = parts[1];
+    for (const [key, depth] of overlay) {
+      const [x, y] = key.split(",").map(Number);
       if (x !== undefined && y !== undefined) {
         this.gameState.setDepthAtBatch(x, y, depth);
       }
     }
 
-    this.brushOverlay.clear();
+    this.brushTool.clearOverlay();
     this.renderer.clearBrushOverlay();
-
     this.gameState.revalidateMap();
-    this.renderer.onTerrainChanged();
-    this.renderer.onWaterChanged();
-    this.renderer.onLabelsToggled();
-    this.updateDebugDisplays();
+    this.updateCoordinator.onTerrainChange();
+  }
+
+  private handleFloodFill(x: number, y: number, fill: boolean): void {
+    this.gameState.floodFill(x, y, fill);
+    this.updateCoordinator.onWaterChange();
+  }
+
+  private handleAddPump(x: number, y: number, mode: "inlet" | "outlet"): void {
+    const selectedId = this.gameState.getSelectedReservoir();
+    this.gameState.addPump(x, y, mode, selectedId !== null);
+    this.updateCoordinator.onPumpsChange();
+    this.updateReservoirControls();
+  }
+
+  private handleLinkPump(x: number, y: number): void {
+    if (this.gameState.linkPumpToReservoir(x, y)) {
+      console.log(
+        `Pipe System ${this.gameState.getSelectedReservoir()} selected for linking future pumps`,
+      );
+    } else {
+      console.log("No pump found at this location to link to");
+    }
+    this.updateReservoirControls();
+    this.draw();
+  }
+
+  private handlePickDepth(x: number, y: number): void {
+    const heights = this.gameState.getHeights();
+    if (heights[y] && heights[y]![x] !== undefined) {
+      this.setSelectedDepth(heights[y]![x]!);
+    }
+  }
+
+  private handleBrushSizeChange(delta: number): void {
+    const newSize = Math.max(
+      UI_CONSTANTS.BRUSH.MIN_SIZE,
+      Math.min(UI_CONSTANTS.BRUSH.MAX_SIZE, this.brushTool.getSize() + delta),
+    );
+    this.brushTool.setSize(newSize);
+    this.controlsUI.setBrushSize(newSize);
+    console.log(`Brush size: ${newSize}`);
+    this.draw();
+  }
+
+  private handleDepthChange(delta: number): void {
+    this.setSelectedDepth(this.selectedDepth + delta);
+  }
+
+  private handleZoom(screenX: number, screenY: number, factor: number): void {
+    this.renderer.zoomAt(screenX, screenY, factor);
+    this.updateInsightsDisplay();
+    this.draw();
+  }
+
+  private handleHover(x: number, y: number): void {
+    this.brushTool.setCenter(x, y);
+    const tileInfo = this.getTileInfo(x, y);
+    this.updateInsightsDisplay(tileInfo);
+    this.draw();
+  }
+
+  private handleHoverEnd(): void {
+    this.brushTool.clearCenter();
+    this.updateInsightsDisplay();
+    this.draw();
   }
 
   private setupEventHandlers(): void {
@@ -276,16 +322,12 @@ class TilemapWaterPumpingApp {
     if (tickBtn) {
       tickBtn.onmousedown = () => {
         this.gameState.tick();
-        this.renderer.onWaterChanged();
-        this.draw();
-        this.updateDebugDisplays();
+        this.updateCoordinator.onWaterChange();
 
         this.tickTimer = setTimeout(() => {
           this.tickInterval = setInterval(() => {
             this.gameState.tick();
-            this.renderer.onWaterChanged();
-            this.draw();
-            this.updateDebugDisplays();
+            this.updateCoordinator.onWaterChange();
           }, 100);
         }, 500);
       };
@@ -309,11 +351,7 @@ class TilemapWaterPumpingApp {
     if (randomizeBtn) {
       randomizeBtn.onclick = () => {
         this.gameState.randomizeHeights();
-        this.renderer.onTerrainChanged();
-        this.renderer.onWaterChanged();
-        this.renderer.onLabelsToggled();
-        this.draw();
-        this.updateDebugDisplays();
+        this.updateCoordinator.onTerrainChange();
       };
     }
 
@@ -321,10 +359,8 @@ class TilemapWaterPumpingApp {
     if (clearPumpsBtn) {
       clearPumpsBtn.onclick = () => {
         this.gameState.clearPumps();
-        this.renderer.onPumpsChanged();
+        this.updateCoordinator.onPumpsChange();
         this.updateReservoirControls();
-        this.draw();
-        this.updateDebugDisplays();
       };
     }
 
@@ -332,9 +368,7 @@ class TilemapWaterPumpingApp {
     if (clearWaterBtn) {
       clearWaterBtn.onclick = () => {
         this.gameState.clearAllWater();
-        this.renderer.onWaterChanged();
-        this.draw();
-        this.updateDebugDisplays();
+        this.updateCoordinator.onWaterChange();
       };
     }
 
@@ -342,8 +376,7 @@ class TilemapWaterPumpingApp {
     if (showDepthLabelsEl) {
       showDepthLabelsEl.onchange = () => {
         this.uiSettings.toggleDepthLabels();
-        this.renderer.onLabelsToggled();
-        this.draw();
+        this.updateCoordinator.onLabelsChange();
       };
     }
 
@@ -351,8 +384,7 @@ class TilemapWaterPumpingApp {
     if (showPumpLabelsEl) {
       showPumpLabelsEl.onchange = () => {
         this.uiSettings.togglePumpLabels();
-        this.renderer.onLabelsToggled();
-        this.draw();
+        this.updateCoordinator.onLabelsChange();
       };
     }
 
@@ -360,8 +392,7 @@ class TilemapWaterPumpingApp {
     if (showBasinLabelsEl) {
       showBasinLabelsEl.onchange = () => {
         this.uiSettings.toggleBasinLabels();
-        this.renderer.onLabelsToggled();
-        this.draw();
+        this.updateCoordinator.onLabelsChange();
       };
     }
 
@@ -370,195 +401,9 @@ class TilemapWaterPumpingApp {
       reservoirInputEl.oninput = () => {
         const desiredId = this.getDesiredReservoirIdFromInput();
         this.gameState.setSelectedReservoir(desiredId);
-        this.renderer.onPumpsChanged();
-        this.draw();
+        this.updateCoordinator.onPumpsChange();
       };
     }
-  }
-
-  private setupCanvasEventHandlers(): void {
-    let isPanning = false;
-    let lastPanX = 0;
-    let lastPanY = 0;
-
-    this.canvas.addEventListener("mousedown", (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-
-      if (e.button === 1) {
-        isPanning = true;
-        lastPanX = screenX;
-        lastPanY = screenY;
-        this.canvas.style.cursor = "grabbing";
-        e.preventDefault();
-        return;
-      }
-
-      const worldPos = this.renderer.screenToWorld(screenX, screenY);
-      const mx = Math.floor(worldPos.x / CONFIG.TILE_SIZE);
-      const my = Math.floor(worldPos.y / CONFIG.TILE_SIZE);
-
-      if (mx < 0 || my < 0 || mx >= CONFIG.WORLD_W || my >= CONFIG.WORLD_H) return;
-
-      if (e.button === 2) {
-        e.preventDefault();
-      }
-
-      if (e.altKey && e.button === 2) {
-        const heights = this.gameState.getHeights();
-        const pickedDepth = heights[my]![mx]!;
-        this.setSelectedDepth(pickedDepth);
-        return;
-      }
-
-      if (e.ctrlKey) {
-        if (e.shiftKey) {
-          if (e.button === 0) {
-            if (this.gameState.linkPumpToReservoir(mx, my)) {
-              console.log(
-                `Pipe System ${this.gameState.getSelectedReservoir()} selected for linking future pumps`,
-              );
-            } else {
-              console.log("No pump found at this location to link to");
-            }
-            this.updateReservoirControls();
-            this.draw();
-          }
-          return;
-        }
-
-        if (e.button === 0) {
-          this.gameState.floodFill(mx, my, true);
-          this.renderer.onWaterChanged();
-        } else if (e.button === 2) {
-          this.gameState.floodFill(mx, my, false);
-          this.renderer.onWaterChanged();
-        }
-        this.draw();
-        this.updateDebugDisplays();
-        return;
-      }
-
-      if (e.shiftKey) {
-        if (e.button === 0) {
-          const selectedId = this.gameState.getSelectedReservoir();
-          this.gameState.addPump(mx, my, "outlet", selectedId !== null);
-          this.renderer.onPumpsChanged();
-          this.updateReservoirControls();
-          this.draw();
-          this.updateDebugDisplays();
-        } else if (e.button === 2) {
-          const selectedId = this.gameState.getSelectedReservoir();
-          this.gameState.addPump(mx, my, "inlet", selectedId !== null);
-          this.renderer.onPumpsChanged();
-          this.updateReservoirControls();
-          this.draw();
-          this.updateDebugDisplays();
-        }
-        return;
-      }
-
-      if (e.button === 0) {
-        this.isDrawing = true;
-        this.brushOverlay.clear();
-        this.renderer.clearBrushOverlay();
-        this.updateBrushOverlay(mx, my);
-        this.gameState.setSelectedReservoir(null);
-        this.renderer.onPumpsChanged();
-        this.updateReservoirControls();
-        this.draw();
-      }
-    });
-
-    this.canvas.addEventListener("mousemove", (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-
-      if (isPanning) {
-        const deltaX = screenX - lastPanX;
-        const deltaY = screenY - lastPanY;
-
-        this.renderer.pan(-deltaX, -deltaY);
-
-        lastPanX = screenX;
-        lastPanY = screenY;
-
-        this.draw();
-      } else {
-        const worldPos = this.renderer.screenToWorld(screenX, screenY);
-        const tileX = Math.floor(worldPos.x / CONFIG.TILE_SIZE);
-        const tileY = Math.floor(worldPos.y / CONFIG.TILE_SIZE);
-
-        this.brushCenter = { x: tileX, y: tileY };
-
-        if (this.isDrawing) {
-          this.updateBrushOverlay(tileX, tileY);
-        }
-
-        const tileInfo = this.getTileInfo(tileX, tileY);
-        this.updateInsightsDisplay(tileInfo);
-        this.draw();
-      }
-    });
-
-    this.canvas.addEventListener("mouseup", (e) => {
-      if (e.button === 1 && isPanning) {
-        isPanning = false;
-        this.canvas.style.cursor = "default";
-      } else if (e.button === 0 && this.isDrawing) {
-        this.isDrawing = false;
-        this.commitBrushChanges();
-        this.draw();
-      }
-    });
-
-    this.canvas.addEventListener("mouseleave", () => {
-      if (isPanning) {
-        isPanning = false;
-        this.canvas.style.cursor = "default";
-      }
-      if (this.isDrawing) {
-        this.isDrawing = false;
-        this.commitBrushChanges();
-        this.draw();
-      }
-      this.brushCenter = null;
-      this.updateInsightsDisplay();
-      this.draw();
-    });
-
-    this.canvas.addEventListener("wheel", (e) => {
-      e.preventDefault();
-
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-
-      if (e.shiftKey) {
-        const delta = e.deltaY > 0 ? -1 : 1;
-        this.brushSize = Math.max(
-          UI_CONSTANTS.BRUSH.MIN_SIZE,
-          Math.min(UI_CONSTANTS.BRUSH.MAX_SIZE, this.brushSize + delta),
-        );
-        this.controlsUI.setBrushSize(this.brushSize);
-        console.log(`Brush size: ${this.brushSize}`);
-        this.draw();
-      } else if (e.altKey) {
-        const delta = e.deltaY > 0 ? -1 : 1;
-        this.setSelectedDepth(this.selectedDepth + delta);
-      } else {
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        this.renderer.zoomAt(screenX, screenY, zoomFactor);
-        this.updateInsightsDisplay();
-        this.draw();
-      }
-    });
-
-    this.canvas.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-    });
   }
 
   private updateInsightsDisplay(tileInfo: TileInfo | null = null): void {
@@ -657,14 +502,14 @@ class TilemapWaterPumpingApp {
   }
 
   private draw(): void {
-    this.renderer.renderOptimized(
+    this.renderer.render(
       // deno-lint-ignore no-explicit-any
       this.gameState as any,
       this.uiSettings,
       this.gameState.getSelectedReservoir(),
-      this.brushOverlay,
-      this.brushCenter,
-      this.brushSize,
+      this.brushTool.getOverlay(),
+      this.brushTool.getCenter(),
+      this.brushTool.getSize(),
       this.selectedDepth,
     );
   }

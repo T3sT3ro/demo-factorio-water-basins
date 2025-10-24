@@ -64,7 +64,7 @@ export class HeightGenerator {
         let value = 0;
 
         // Apply recursive domain warping if enabled
-        if (this.noiseSettings.warpStrength > 0 && this.noiseSettings.warpIterations >= 1) {
+        if (this.noiseSettings.warpStrength > 0 && this.noiseSettings.warpIterations > 1) {
           warpedPixels++;
           // Use recursive warping with proper octaves
           value = warpedNoise2D(
