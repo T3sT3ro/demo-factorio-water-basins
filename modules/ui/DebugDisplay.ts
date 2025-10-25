@@ -1,7 +1,6 @@
 // Debug display for basins, reservoirs, and pumps with interactive management
 
 import type { BasinManager } from "../basins.ts";
-import { UI_CONSTANTS } from "../constants.ts";
 
 export interface DebugDisplayCallbacks {
   removePump: (index: number) => void;
@@ -203,7 +202,10 @@ export class DebugDisplay {
       const pumpsContainer = clone.querySelector(".reservoir-pumps") as HTMLElement;
 
       if (titleEl && removeBtn && pumpsContainer) {
-        titleEl.textContent = `Pipe System ${id} - ${reservoir.volume.toFixed(1)} water`;
+        const systemPumps = pumpsByReservoir.get(id) || [];
+        const pumpCount = systemPumps.length;
+        titleEl.textContent =
+          `Pipe System ${id} - ${reservoir.volume.toFixed(1)} water (${pumpCount} pump${pumpCount !== 1 ? "s" : ""})`;
 
         removeBtn.addEventListener("click", () => {
           this.callbacks.removeReservoir(id);
@@ -213,28 +215,25 @@ export class DebugDisplay {
           this.callbacks.draw();
         });
 
-        const systemPumps = pumpsByReservoir.get(id) || [];
         if (systemPumps.length > 0) {
-          const pumpsTitle = document.createElement("div");
-          pumpsTitle.className = "reservoir-pumps-title";
-          pumpsTitle.textContent = `${systemPumps.length} pump(s):`;
-          pumpsContainer.appendChild(pumpsTitle);
-
-          for (const pumpWithIndex of systemPumps) {
+          const table = document.createElement("table");
+          table.className = "pumps-table";
+          const tbody = document.createElement("tbody");
+          
+          systemPumps.forEach((pumpWithIndex, pumpIndex) => {
             const pumpClone = pumpTemplate.content.cloneNode(true) as DocumentFragment;
-            const colorBox = pumpClone.querySelector(".pump-color-box") as HTMLElement;
-            const pumpInfo = pumpClone.querySelector(".pump-info") as HTMLElement;
+            const pumpLabel = pumpClone.querySelector(".pump-label") as HTMLElement;
+            const pumpCoords = pumpClone.querySelector(".pump-coords") as HTMLElement;
+            const pumpTypeBadge = pumpClone.querySelector(".pump-type-badge") as HTMLElement;
             const removePumpBtn = pumpClone.querySelector(".remove-btn") as HTMLButtonElement;
 
-            if (colorBox && pumpInfo && removePumpBtn) {
-              // Set color based on mode
-              const pumpColor = pumpWithIndex.mode === "inlet"
-                ? UI_CONSTANTS.RENDERING.COLORS.PUMPS.INLET
-                : UI_CONSTANTS.RENDERING.COLORS.PUMPS.OUTLET;
-
-              colorBox.style.backgroundColor = pumpColor;
-              pumpInfo.textContent =
-                `(${pumpWithIndex.x}, ${pumpWithIndex.y}) - ${pumpWithIndex.mode}`;
+            if (pumpLabel && pumpCoords && pumpTypeBadge && removePumpBtn) {
+              pumpLabel.textContent = `P${id}.${pumpIndex + 1}`;
+              pumpCoords.textContent = `(${pumpWithIndex.x}, ${pumpWithIndex.y})`;
+              
+              // Set badge style and text based on mode
+              pumpTypeBadge.textContent = pumpWithIndex.mode;
+              pumpTypeBadge.classList.add(pumpWithIndex.mode === "inlet" ? "inlet-badge" : "outlet-badge");
 
               removePumpBtn.addEventListener("click", () => {
                 this.callbacks.removePump(pumpWithIndex.index);
@@ -244,9 +243,12 @@ export class DebugDisplay {
                 this.callbacks.draw();
               });
 
-              pumpsContainer.appendChild(pumpClone);
+              tbody.appendChild(pumpClone);
             }
-          }
+          });
+          
+          table.appendChild(tbody);
+          pumpsContainer.appendChild(table);
         }
 
         debugReservoirsDiv.appendChild(clone);
