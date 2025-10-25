@@ -81,7 +81,7 @@
 
     & .value-display {
       min-inline-size: var(--min-width-octave-value);
-      font-size: var(--font-size-00);
+      font-size: var(--font-size-0);
     }
   }
 }
