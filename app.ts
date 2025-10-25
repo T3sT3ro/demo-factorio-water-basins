@@ -265,13 +265,7 @@ class TilemapWaterPumpingApp {
   }
 
   private handleLinkPump(x: number, y: number): void {
-    if (this.gameState.linkPumpToReservoir(x, y)) {
-      console.log(
-        `Pipe System ${this.gameState.getSelectedReservoir()} selected for linking future pumps`,
-      );
-    } else {
-      console.log("No pump found at this location to link to");
-    }
+    this.gameState.linkPumpToReservoir(x, y);
     this.updateReservoirControls();
     this.draw();
   }

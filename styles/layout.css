@@ -1,0 +1,42 @@
+/* Layout layer: Main application structure and grid */
+@layer layout {
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-2);
+  }
+
+  #canvasContainer {
+    border: var(--border-size-1) solid var(--border-color-1);
+    max-block-size: 100%;
+    overflow: hidden;
+
+    & canvas {
+      display: block;
+    }
+  }
+
+  /* Controls container structure */
+  #controls {
+    display: flex;
+    flex-direction: column;
+    row-gap: var(--control-gap);
+    flex: 1;
+    min-inline-size: var(--min-width-canvas-container);
+  }
+
+  #topControls,
+  #bottomControls {
+    display: flex;
+    gap: var(--control-gap);
+    align-items: stretch;
+  }
+
+  /* Debug container layout */
+  #debugContainer {
+    display: flex;
+    gap: var(--control-gap);
+    flex: 1;
+    min-block-size: 0;
+  }
+}

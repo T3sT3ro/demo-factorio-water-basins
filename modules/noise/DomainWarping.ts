@@ -26,7 +26,7 @@ export function computeFBM(
   for (let i = 0; i < octaves; i++) {
     let frequency: number;
     let amplitude: number;
-    
+
     const octaveSetting = octaveSettings?.[i];
     if (octaveSetting) {
       // When using custom octave settings, use them directly
@@ -76,7 +76,7 @@ function fbmForWarp(
  * Apply progressive domain warping to coordinates
  * Returns warped (x, y) coordinates based on warp iterations and strength
  * When iterations = 0 or strength = 0, returns original coordinates
- * 
+ *
  * Normalized parameter meanings:
  * - baseFreq: Derived from scale (0-1), where 1.0 = one feature across world (10 chunks)
  * - warpStrength: In tile units, typically 0-32 (0 to ~2 chunks of distortion)
@@ -108,24 +108,66 @@ export function applyDomainWarp(
   // Progressive warping: apply up to 3 iterations
   if (iterations >= 1) {
     const strength = warpStrength / 2.0;
-    const qx = fbmForWarp(px + 0.0 + seed, py + 0.0 + seed, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    const qy = fbmForWarp(px + 5.2 + seed, py + 1.3 + seed, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
+    const qx = fbmForWarp(
+      px + 0.0 + seed,
+      py + 0.0 + seed,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+    const qy = fbmForWarp(
+      px + 5.2 + seed,
+      py + 1.3 + seed,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
     px = px + strength * qx;
     py = py + strength * qy;
   }
 
   if (iterations >= 2) {
     const strength = warpStrength / 4.0;
-    const rx = fbmForWarp(px + 1.7 + seed * 2, py + 9.2 + seed * 2, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    const ry = fbmForWarp(px + 8.3 + seed * 2, py + 2.8 + seed * 2, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
+    const rx = fbmForWarp(
+      px + 1.7 + seed * 2,
+      py + 9.2 + seed * 2,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+    const ry = fbmForWarp(
+      px + 8.3 + seed * 2,
+      py + 2.8 + seed * 2,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
     px = px + strength * rx;
     py = py + strength * ry;
   }
 
   if (iterations >= 3) {
     const strength = warpStrength / 8.0;
-    const sx = fbmForWarp(px + 3.1 + seed * 3, py + 7.4 + seed * 3, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    const sy = fbmForWarp(px + 6.9 + seed * 3, py + 4.5 + seed * 3, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
+    const sx = fbmForWarp(
+      px + 3.1 + seed * 3,
+      py + 7.4 + seed * 3,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+    const sy = fbmForWarp(
+      px + 6.9 + seed * 3,
+      py + 4.5 + seed * 3,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
     px = px + strength * sx;
     py = py + strength * sy;
   }
@@ -161,31 +203,83 @@ export function warpedNoise2D(
 
   if (iterations >= 1) {
     const strength = warpStrength / 2.0;
-    const qx = fbmForWarp(px + 0.0 + seed, py + 0.0 + seed, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    const qy = fbmForWarp(px + 5.2 + seed, py + 1.3 + seed, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    
+    const qx = fbmForWarp(
+      px + 0.0 + seed,
+      py + 0.0 + seed,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+    const qy = fbmForWarp(
+      px + 5.2 + seed,
+      py + 1.3 + seed,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+
     px = px + strength * qx;
     py = py + strength * qy;
   }
 
   if (iterations >= 2) {
     const strength = warpStrength / 4.0;
-    const rx = fbmForWarp(px + 1.7 + seed * 2, py + 9.2 + seed * 2, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    const ry = fbmForWarp(px + 8.3 + seed * 2, py + 2.8 + seed * 2, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    
+    const rx = fbmForWarp(
+      px + 1.7 + seed * 2,
+      py + 9.2 + seed * 2,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+    const ry = fbmForWarp(
+      px + 8.3 + seed * 2,
+      py + 2.8 + seed * 2,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+
     px = px + strength * rx;
     py = py + strength * ry;
   }
 
   if (iterations >= 3) {
     const strength = warpStrength / 8.0;
-    const sx = fbmForWarp(px + 3.1 + seed * 3, py + 7.4 + seed * 3, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    const sy = fbmForWarp(px + 6.9 + seed * 3, py + 4.5 + seed * 3, noiseFunc, warpOctaves, warpLacunarity, warpPersistence);
-    
+    const sx = fbmForWarp(
+      px + 3.1 + seed * 3,
+      py + 7.4 + seed * 3,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+    const sy = fbmForWarp(
+      px + 6.9 + seed * 3,
+      py + 4.5 + seed * 3,
+      noiseFunc,
+      warpOctaves,
+      warpLacunarity,
+      warpPersistence,
+    );
+
     px = px + strength * sx;
     py = py + strength * sy;
   }
 
   // Use computeFBM for final evaluation
-  return computeFBM(px, py, noiseFunc, octaves, lacunarity, persistence, gain, seedOffset, octaveSettings);
+  return computeFBM(
+    px,
+    py,
+    noiseFunc,
+    octaves,
+    lacunarity,
+    persistence,
+    gain,
+    seedOffset,
+    octaveSettings,
+  );
 }

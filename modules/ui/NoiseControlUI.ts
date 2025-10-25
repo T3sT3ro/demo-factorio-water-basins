@@ -182,7 +182,10 @@ export class NoiseControlUI {
               amplitude: 0,
             };
           }
-          this.noiseSettings.octaveSettings[i]!.frequency = Math.pow(this.noiseSettings.lacunarity, i);
+          this.noiseSettings.octaveSettings[i]!.frequency = Math.pow(
+            this.noiseSettings.lacunarity,
+            i,
+          );
         }
         this.createOctaveControls();
         this.noiseSettings.saveSettings();

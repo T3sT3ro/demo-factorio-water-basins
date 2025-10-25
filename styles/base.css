@@ -1,0 +1,87 @@
+/* Base layer: CSS Reset, Design Tokens, and Utility Classes */
+@layer base {
+  :root {
+    /* Component-specific sizing constraints */
+    --max-height-octave: var(--size-12);
+    --max-height-debug: var(--size-13);
+    --min-width-value: var(--size-10);
+    --min-width-octave-value: var(--size-9);
+    --min-width-canvas-container: var(--size-12);
+
+    /* Common spacing and sizing patterns */
+    --control-gap: var(--size-1);
+    --control-padding: var(--size-2);
+    --modal-max-width: var(--size-content-3);
+    --modal-backdrop-opacity: 0.5;
+
+    /* Animation and transition defaults */
+    --transition-standard: all var(--animation-speed-normal) ease;
+    --hover-brightness: 1.5;
+
+    /* Light theme semantic colors */
+    --brand-light: var(--orange-6);
+    --text-1-light: var(--gray-8);
+    --text-2-light: var(--gray-7);
+    --text-3-light: var(--gray-6);
+    --surface-1-light: var(--gray-0);
+    --surface-2-light: var(--gray-1);
+    --surface-3-light: var(--gray-2);
+    --surface-4-light: var(--gray-3);
+    --border-color-1-light: var(--gray-5);
+    --border-color-2-light: var(--gray-6);
+
+    /* Dark theme semantic colors */
+    --brand-dark: var(--orange-6);
+    --text-1-dark: var(--gray-0);
+    --text-2-dark: var(--gray-1);
+    --text-3-dark: var(--gray-2);
+    --surface-1-dark: var(--gray-9);
+    --surface-2-dark: var(--gray-10);
+    --surface-3-dark: var(--gray-11);
+    --surface-4-dark: var(--gray-12);
+    --border-color-1-dark: var(--gray-8);
+    --border-color-2-dark: var(--gray-7);
+
+    color-scheme: light dark;
+
+    /* Semantic color application */
+    --brand: light-dark(var(--brand-light), var(--brand-dark));
+    --text-1: light-dark(var(--text-1-light), var(--text-1-dark));
+    --text-2: light-dark(var(--text-2-light), var(--text-2-dark));
+    --text-3: light-dark(var(--text-3-light), var(--text-3-dark));
+    --surface-1: light-dark(var(--surface-1-light), var(--surface-1-dark));
+    --surface-2: light-dark(var(--surface-2-light), var(--surface-2-dark));
+    --surface-3: light-dark(var(--surface-3-light), var(--surface-3-dark));
+    --surface-4: light-dark(var(--surface-4-light), var(--surface-4-dark));
+    --border-color-1: light-dark(var(--border-color-1-light), var(--border-color-1-dark));
+    --border-color-2: light-dark(var(--border-color-2-light), var(--border-color-2-dark));
+
+    accent-color: var(--brand);
+  }
+
+  /* Reset to sane sizing model */
+  html {
+    box-sizing: border-box;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: inherit;
+  }
+
+  /* Base typography */
+  body {
+    font-family: var(--font-sans), system-ui, Arial, sans-serif;
+    margin: var(--size-2);
+    display: flex;
+    gap: var(--size-2);
+    block-size: calc(100vh - var(--size-4));
+    overflow: hidden;
+  }
+
+  /* Utility classes */
+  .col-span-full {
+    grid-column: 1 / -1;
+  }
+}
