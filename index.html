@@ -303,18 +303,19 @@
     <div class="reservoir-item">
       <div class="reservoir-header">
         <span class="reservoir-title"></span>
-        <button class="remove-btn" title="Remove this pipe system">Remove</button>
+        <button class="remove-btn" title="Remove this pipe system">remove</button>
       </div>
       <div class="reservoir-pumps"></div>
     </div>
   </template>
 
   <template id="template-pump-item">
-    <div class="pump-item">
-      <span class="pump-color-box"></span>
-      <span class="pump-info"></span>
-      <button class="remove-btn" title="Remove this pump">×</button>
-    </div>
+    <tr class="pump-item">
+      <td class="pump-label"></td>
+      <td class="pump-type-badge"></td>
+      <td class="pump-coords"></td>
+      <td><button class="remove-btn" title="Remove this pump">remove </button></td>
+    </tr>
   </template>
 </body>
 
