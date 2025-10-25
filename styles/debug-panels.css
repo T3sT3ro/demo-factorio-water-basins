@@ -29,17 +29,69 @@
     max-width: 100%;
   }
 
-  /* Basin items */
+  /* Basin tree structure */
+  .basin-tree {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
   .basin-item {
-    padding: 2px 0;
+    list-style: none;
+    margin: 0;
+    
+    & details {
+      margin: 0;
+      
+      & summary {
+        cursor: pointer;
+        padding: var(--size-1) var(--size-2);
+        border-radius: var(--radius-1);
+        transition: background var(--transition-standard);
+        list-style: none;
+        user-select: none;
+        
+        &:hover {
+          background: var(--surface-2);
+        }
+        
+        &::marker,
+        &::-webkit-details-marker {
+          display: none;
+        }
+        
+        &::after {
+          content: "▶";
+          display: inline-block;
+          margin-inline-start: auto;
+          transition: transform var(--transition-standard);
+          font-size: var(--font-size-0);
+          color: var(--text-3);
+        }
+      }
+      
+      &[open] > summary::after {
+        transform: rotate(90deg);
+      }
+      
+      /* Hide arrow for leaf nodes (no children) */
+      &.leaf-node > summary::after {
+        content: "";
+        margin-inline-end: 0;
+      }
+    }
+  }
+
+  .basin-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--size-1);
     font-size: var(--font-size-0);
     line-height: var(--line-height-2);
-    white-space: nowrap;
-    cursor: default;
   }
 
   .basin-id {
-    font-weight: bold;
+    font-weight: var(--font-weight-7);
     color: var(--text-1);
   }
 
@@ -47,9 +99,10 @@
     color: var(--text-2);
   }
 
-  .basin-outlets {
-    color: var(--text-3);
-    font-size: var(--font-size-00);
+  .basin-children {
+    list-style: none;
+    padding-inline-start: var(--size-5);
+    margin: 0;
   }
 
   /* Reservoir and pump items */

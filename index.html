@@ -292,11 +292,15 @@
   </template>
 
   <template id="template-basin-item">
-    <div class="basin-item">
-      <strong class="basin-id"></strong>
-      <span class="basin-info"></span>
-      <span class="basin-outlets"></span>
-    </div>
+    <li class="basin-item">
+      <details open>
+        <summary class="basin-summary">
+          <span class="basin-id"></span>
+          <span class="basin-info"></span>
+        </summary>
+        <ul class="basin-children"></ul>
+      </details>
+    </li>
   </template>
 
   <template id="template-reservoir-item">
