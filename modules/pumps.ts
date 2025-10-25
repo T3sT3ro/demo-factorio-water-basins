@@ -192,6 +192,12 @@ export class PumpManager {
     return false;
   }
 
+  removePumpsByReservoir(reservoirId: number): number {
+    const initialLength = this.pumps.length;
+    this.pumps = this.pumps.filter((pump) => pump.reservoirId !== reservoirId);
+    return initialLength - this.pumps.length;
+  }
+
   // Get pumps grouped by reservoir for debugging
   getPumpsByReservoir(): Map<number, Array<Pump & { index: number }>> {
     const pumpsByReservoir = new Map<number, Array<Pump & { index: number }>>();
