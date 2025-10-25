@@ -22,9 +22,10 @@ export class NoiseControlUI {
 
     for (let i = 0; i < this.noiseSettings.octaves; i++) {
       // Get or create settings for this octave
+      // Octave frequencies are relative multipliers (1x, 2x, 4x...), not absolute
       if (!this.noiseSettings.octaveSettings[i]) {
         this.noiseSettings.octaveSettings[i] = {
-          frequency: this.noiseSettings.baseFreq * Math.pow(this.noiseSettings.lacunarity, i),
+          frequency: Math.pow(this.noiseSettings.lacunarity, i),
           amplitude: Math.pow(this.noiseSettings.persistence, i),
         };
       }
@@ -33,19 +34,19 @@ export class NoiseControlUI {
       const clone = template.content.cloneNode(true) as DocumentFragment;
       const octaveDiv = clone.querySelector(".octave-controls") as HTMLElement;
       const title = clone.querySelector(".octave-title") as HTMLElement;
-      const freqLabel = clone.querySelector(".octave-frequency") as HTMLLabelElement;
+      const scaleLabel = clone.querySelector(".octave-scale") as HTMLLabelElement;
       const ampLabel = clone.querySelector(".octave-amplitude") as HTMLLabelElement;
 
-      if (octaveDiv && title && freqLabel && ampLabel) {
+      if (octaveDiv && title && scaleLabel && ampLabel) {
         title.textContent = `Octave ${i + 1}`;
 
-        // Set up frequency control
-        const freqInput = freqLabel.querySelector("input") as HTMLInputElement;
-        const freqValue = freqLabel.querySelector(".value-display") as HTMLElement;
-        freqInput.id = `octaveFreq${i}`;
-        freqInput.value = settings.frequency.toFixed(3);
-        freqValue.id = `octaveFreq${i}Value`;
-        freqValue.textContent = settings.frequency.toFixed(3);
+        // Set up scale control (relative frequency multiplier)
+        const scaleInput = scaleLabel.querySelector("input") as HTMLInputElement;
+        const scaleValue = scaleLabel.querySelector(".value-display") as HTMLElement;
+        scaleInput.id = `octaveScale${i}`;
+        scaleInput.value = settings.frequency.toFixed(2);
+        scaleValue.id = `octaveScale${i}Value`;
+        scaleValue.textContent = settings.frequency.toFixed(2);
 
         // Set up amplitude control
         const ampInput = ampLabel.querySelector("input") as HTMLInputElement;
@@ -59,14 +60,14 @@ export class NoiseControlUI {
       }
 
       // Add event listeners for real-time updates
-      const freqInput = document.getElementById(`octaveFreq${i}`) as HTMLInputElement | null;
+      const scaleInput = document.getElementById(`octaveScale${i}`) as HTMLInputElement | null;
       const ampInput = document.getElementById(`octaveAmp${i}`) as HTMLInputElement | null;
 
-      if (freqInput) {
-        freqInput.addEventListener("input", (e) => {
+      if (scaleInput) {
+        scaleInput.addEventListener("input", (e) => {
           const target = e.target as HTMLInputElement;
-          const valueEl = document.getElementById(`octaveFreq${i}Value`);
-          if (valueEl) valueEl.textContent = target.value;
+          const valueEl = document.getElementById(`octaveScale${i}Value`);
+          if (valueEl) valueEl.textContent = parseFloat(target.value).toFixed(2);
           const octaveSetting = this.noiseSettings.octaveSettings[i];
           if (octaveSetting) {
             octaveSetting.frequency = parseFloat(target.value);
@@ -94,7 +95,7 @@ export class NoiseControlUI {
 
   setupMainNoiseControls(): void {
     // Enhanced noise control event listeners
-    const freqEl = document.getElementById("noiseFreq") as HTMLInputElement | null;
+    const scaleEl = document.getElementById("noiseScale") as HTMLInputElement | null;
     const octavesEl = document.getElementById("noiseOctaves") as HTMLInputElement | null;
     const persistenceEl = document.getElementById("noisePersistence") as HTMLInputElement | null;
     const lacunarityEl = document.getElementById("noiseLacunarity") as HTMLInputElement | null;
@@ -106,24 +107,14 @@ export class NoiseControlUI {
       "noiseWarpIterations",
     ) as HTMLInputElement | null;
 
-    if (freqEl) {
-      freqEl.addEventListener("input", (e) => {
+    if (scaleEl) {
+      scaleEl.addEventListener("input", (e) => {
         const target = e.target as HTMLInputElement;
-        const valueEl = document.getElementById("noiseFreqValue");
-        if (valueEl) valueEl.textContent = target.value;
-        this.noiseSettings.baseFreq = parseFloat(target.value);
-        // Update existing octave settings with new base frequency
-        for (let i = 0; i < this.noiseSettings.octaves; i++) {
-          if (!this.noiseSettings.octaveSettings[i]) {
-            this.noiseSettings.octaveSettings[i] = {
-              frequency: 0,
-              amplitude: 0,
-            };
-          }
-          this.noiseSettings.octaveSettings[i]!.frequency = this.noiseSettings.baseFreq *
-            Math.pow(this.noiseSettings.lacunarity, i);
-        }
-        this.createOctaveControls(); // Recreate octave controls with new base frequency
+        const valueEl = document.getElementById("noiseScaleValue");
+        if (valueEl) valueEl.textContent = parseFloat(target.value).toFixed(2);
+        this.noiseSettings.scale = parseFloat(target.value);
+        // Note: octave frequencies are relative multipliers, not absolute
+        // They don't need updating when base scale changes
         this.noiseSettings.saveSettings();
         this.onSettingsChange();
       });
@@ -147,7 +138,7 @@ export class NoiseControlUI {
         const valueEl = document.getElementById("noisePersistenceValue");
         if (valueEl) valueEl.textContent = target.value;
         this.noiseSettings.persistence = parseFloat(target.value);
-        // Update existing octave settings with new persistence
+        // Update octave amplitudes
         for (let i = 0; i < this.noiseSettings.octaves; i++) {
           if (!this.noiseSettings.octaveSettings[i]) {
             this.noiseSettings.octaveSettings[i] = {
@@ -160,7 +151,7 @@ export class NoiseControlUI {
             i,
           );
         }
-        this.createOctaveControls(); // Recreate octave controls with new persistence
+        this.createOctaveControls();
         this.noiseSettings.saveSettings();
         this.onSettingsChange();
       });
@@ -183,7 +174,7 @@ export class NoiseControlUI {
         const valueEl = document.getElementById("noiseLacunarityValue");
         if (valueEl) valueEl.textContent = parseFloat(target.value).toFixed(2);
         this.noiseSettings.lacunarity = parseFloat(target.value);
-        // Update existing octave settings with new lacunarity
+        // Update octave relative frequencies
         for (let i = 0; i < this.noiseSettings.octaves; i++) {
           if (!this.noiseSettings.octaveSettings[i]) {
             this.noiseSettings.octaveSettings[i] = {
@@ -191,10 +182,9 @@ export class NoiseControlUI {
               amplitude: 0,
             };
           }
-          this.noiseSettings.octaveSettings[i]!.frequency = this.noiseSettings.baseFreq *
-            Math.pow(this.noiseSettings.lacunarity, i);
+          this.noiseSettings.octaveSettings[i]!.frequency = Math.pow(this.noiseSettings.lacunarity, i);
         }
-        this.createOctaveControls(); // Recreate octave controls with new lacunarity
+        this.createOctaveControls();
         this.noiseSettings.saveSettings();
         this.onSettingsChange();
       });
@@ -245,8 +235,8 @@ export class NoiseControlUI {
 
   updateUI(): void {
     // Update main noise controls with current settings
-    const freqEl = document.getElementById("noiseFreq") as HTMLInputElement | null;
-    const freqValueEl = document.getElementById("noiseFreqValue");
+    const scaleEl = document.getElementById("noiseScale") as HTMLInputElement | null;
+    const scaleValueEl = document.getElementById("noiseScaleValue");
     const octavesEl = document.getElementById("noiseOctaves") as HTMLInputElement | null;
     const octavesValueEl = document.getElementById("noiseOctavesValue");
     const persistenceEl = document.getElementById("noisePersistence") as HTMLInputElement | null;
@@ -265,9 +255,9 @@ export class NoiseControlUI {
     ) as HTMLInputElement | null;
     const warpIterationsValueEl = document.getElementById("noiseWarpIterationsValue");
 
-    if (freqEl) {
-      freqEl.value = this.noiseSettings.baseFreq.toString();
-      if (freqValueEl) freqValueEl.textContent = this.noiseSettings.baseFreq.toFixed(3);
+    if (scaleEl) {
+      scaleEl.value = this.noiseSettings.scale.toString();
+      if (scaleValueEl) scaleValueEl.textContent = this.noiseSettings.scale.toFixed(2);
     }
     if (octavesEl) {
       octavesEl.value = this.noiseSettings.octaves.toString();
