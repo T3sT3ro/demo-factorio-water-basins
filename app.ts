@@ -78,6 +78,7 @@ class TilemapWaterPumpingApp {
         this.renderer.onPumpsChanged();
       },
       removeReservoir: (id) => {
+        this.gameState.getPumpManager().removePumpsByReservoir(id);
         this.gameState.getReservoirManager().removeReservoir(id);
         this.renderer.onPumpsChanged();
         this.renderer.onWaterChanged();
