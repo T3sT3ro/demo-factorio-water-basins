@@ -1,0 +1,164 @@
+/* Debug Panels Module - Basins and Reservoirs displays */
+@layer modules {
+  #basinsDebug,
+  #reservoirsDebug {
+    flex: 1;
+
+    & h4 {
+      margin: 0 0 var(--size-2) 0;
+      border-block-end: var(--border-size-1) solid var(--border-color-1);
+      padding-block-end: var(--size-1);
+      flex-shrink: 0;
+    }
+  }
+
+  #basinsText,
+  #reservoirsText {
+    flex: 1;
+    overflow-y: auto;
+    line-height: var(--line-height-2);
+    font-family: var(--font-mono), "Courier New", monospace;
+    min-block-size: 0;
+    font-size: var(--font-size-0);
+  }
+
+  #basinsText {
+    overflow-x: auto;
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Basin items */
+  .basin-item {
+    padding: 2px 0;
+    font-size: var(--font-size-0);
+    line-height: var(--line-height-2);
+    white-space: nowrap;
+    cursor: default;
+  }
+
+  .basin-id {
+    font-weight: bold;
+    color: var(--text-1);
+  }
+
+  .basin-info {
+    color: var(--text-2);
+  }
+
+  .basin-outlets {
+    color: var(--text-3);
+    font-size: var(--font-size-00);
+  }
+
+  /* Reservoir and pump items */
+  .reservoir-item {
+    margin-block-end: var(--size-2);
+    padding: var(--size-1);
+    border: var(--border-size-1) solid var(--border-color-1);
+    border-radius: var(--radius-1);
+    background: var(--surface-1);
+    font-size: var(--font-size-0);
+    line-height: var(--line-height-2);
+  }
+
+  .reservoir-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--size-2);
+    margin-block-end: var(--size-1);
+
+    & .remove-btn {
+      flex-shrink: 0;
+    }
+  }
+
+  .reservoir-title {
+    font-weight: bold;
+    color: var(--text-1);
+    flex: 1;
+    font-size: var(--font-size-0);
+  }
+
+  .reservoir-pumps {
+    padding-inline-start: var(--size-2);
+    border-inline-start: var(--border-size-2) solid var(--border-color-1);
+  }
+
+  .reservoir-pumps-title {
+    margin-block-end: var(--size-1);
+    color: var(--text-2);
+    font-size: var(--font-size-00);
+  }
+
+  .pump-item {
+    display: flex;
+    align-items: center;
+    gap: var(--size-1);
+    padding-block: 2px;
+    font-size: var(--font-size-0);
+
+    & .remove-btn {
+      flex-shrink: 0;
+      padding: 1px var(--size-1);
+      min-inline-size: 20px;
+    }
+  }
+
+  .pump-color-box {
+    inline-size: 10px;
+    block-size: 10px;
+    border: var(--border-size-1) solid var(--border-color-2);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .pump-info {
+    flex: 1;
+    color: var(--text-2);
+    font-size: var(--font-size-0);
+  }
+
+  /* Pipe system input */
+  .pipe-system-input-label {
+    font-weight: normal;
+    font-size: var(--font-size-0);
+    margin-inline-start: var(--size-2);
+    display: flex;
+    align-items: center;
+    gap: var(--size-1);
+  }
+
+  #reservoirInput {
+    inline-size: var(--size-9);
+    padding: var(--size-1);
+    border: var(--border-size-1) solid var(--border-color-1);
+    border-radius: var(--radius-1);
+    background: var(--surface-1);
+    color: var(--text-1);
+    font-size: var(--font-size-0);
+  }
+
+  /* Remove button styling */
+  .remove-btn {
+    padding: 2px var(--size-1);
+    font-size: var(--font-size-00);
+    line-height: 1.2;
+    background: var(--red-6);
+    color: var(--gray-0);
+    border: none;
+    border-radius: var(--radius-1);
+    cursor: pointer;
+    transition: var(--transition-standard);
+
+    &:hover {
+      background: var(--red-7);
+    }
+
+    &:active {
+      background: var(--red-8);
+    }
+  }
+}

@@ -1,0 +1,58 @@
+/* Components layer: Reusable control-box pattern and common components */
+@layer components {
+  /* Control box - base component used throughout the app */
+  .control-box {
+    display: flex;
+    flex-direction: column;
+    padding: var(--control-padding);
+    border: var(--border-size-1) solid var(--border-color-1);
+    border-radius: var(--radius-1);
+    background: var(--surface-2);
+    min-inline-size: min-content;
+
+    & h4 {
+      margin: 0 0 var(--size-2) 0;
+      font-size: var(--font-size-0);
+      font-weight: bold;
+      color: var(--text-1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  }
+
+  /* Value display - monospace numbers throughout */
+  .value-display {
+    min-inline-size: var(--min-width-value);
+    text-align: end;
+    font-family: var(--font-mono), "Courier New", monospace;
+    font-size: var(--font-size-0);
+    color: var(--text-2);
+  }
+
+  /* Control item - checkbox/radio patterns */
+  .control-item {
+    display: flex;
+    align-items: center;
+    gap: var(--size-1);
+    margin-inline-end: var(--size-2);
+    line-height: var(--line-height-1);
+    font-size: var(--font-size-0);
+    margin-block-start: var(--size-relative-1);
+  }
+
+  /* Control section - flex container for controls */
+  .control-section {
+    display: flex;
+    align-items: center;
+    gap: var(--size-2);
+    font-size: var(--font-size-0);
+  }
+
+  /* Button and select defaults */
+  button,
+  select {
+    padding: var(--size-2) var(--size-3);
+    cursor: pointer;
+  }
+}

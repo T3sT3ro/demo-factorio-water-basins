@@ -1,6 +1,7 @@
 // Debug display for basins, reservoirs, and pumps with interactive management
 
 import type { BasinManager } from "../basins.ts";
+import { UI_CONSTANTS } from "../constants.ts";
 
 export interface DebugDisplayCallbacks {
   removePump: (index: number) => void;
@@ -30,16 +31,14 @@ interface BasinEntry {
 
 interface GameState {
   basinManager: BasinManager;
-  reservoirs: Map<number, { id: number; waterStored: number; x: number; y: number }>;
-  pumps: Array<{
+  selectedBasinId: string | null;
+  getPumps(): Array<{
     x: number;
     y: number;
     reservoirId: number;
-    mode: "in" | "out";
-    color: string;
+    mode: "inlet" | "outlet";
   }>;
-  selectedDepth: number | null;
-  selectedBasinId: string | null;
+  getReservoirs(): Map<number, { volume: number }>;
 }
 
 export class DebugDisplay {
@@ -59,7 +58,7 @@ export class DebugDisplay {
   }
 
   updateBasinsDisplay(): void {
-    const debugBasinsDiv = document.getElementById("debugBasins");
+    const debugBasinsDiv = document.getElementById("basinsText");
     if (!debugBasinsDiv) return;
 
     const basins = this.basinManager.basins;
@@ -135,9 +134,10 @@ export class DebugDisplay {
       const outletsEl = clone.querySelector(".basin-outlets") as HTMLElement;
 
       if (div && idEl && infoEl && outletsEl) {
-        div.style.marginLeft = `${indent * 12}px`;
-        div.style.fontSize = "12px";
-        div.style.lineHeight = "1.5";
+        // Apply indent using CSS margin
+        if (indent > 0) {
+          div.style.marginInlineStart = `${indent * 12}px`;
+        }
 
         const heightLabel = entry.basin.height === 0 ? "Surface" : `Height ${entry.basin.height}`;
         const waterPercent = entry.basin.volume > 0
@@ -149,11 +149,7 @@ export class DebugDisplay {
           ` (${heightLabel}, ${entry.basin.tiles.size} tiles, ${waterPercent}% full)`;
 
         if (entry.basin.outlets.length > 0) {
-          outletsEl.style.fontSize = "11px";
-          outletsEl.style.color = "var(--gray-6)";
           outletsEl.textContent = ` → outlets: ${entry.basin.outlets.join(", ")}`;
-        } else {
-          outletsEl.textContent = "";
         }
 
         debugBasinsDiv!.appendChild(clone);
@@ -171,7 +167,7 @@ export class DebugDisplay {
   }
 
   updateReservoirsDisplay(): void {
-    const debugReservoirsDiv = document.getElementById("debugReservoirs");
+    const debugReservoirsDiv = document.getElementById("reservoirsText");
     const reservoirTemplate = document.getElementById(
       "template-reservoir-item",
     ) as HTMLTemplateElement | null;
@@ -181,8 +177,8 @@ export class DebugDisplay {
 
     if (!debugReservoirsDiv || !reservoirTemplate || !pumpTemplate) return;
 
-    const reservoirs = this.gameState.reservoirs;
-    const pumps = this.gameState.pumps;
+    const reservoirs = this.gameState.getReservoirs();
+    const pumps = this.gameState.getPumps();
 
     if (reservoirs.size === 0) {
       debugReservoirsDiv.innerHTML = "<em>No reservoirs</em>";
@@ -192,31 +188,23 @@ export class DebugDisplay {
     debugReservoirsDiv.innerHTML = "";
 
     // Group pumps by reservoir (pipe system)
-    const pumpsByReservoir = new Map<number, typeof pumps>();
-    for (const pump of pumps) {
+    const pumpsByReservoir = new Map<number, Array<typeof pumps[number] & { index: number }>>();
+    pumps.forEach((pump, index) => {
       if (!pumpsByReservoir.has(pump.reservoirId)) {
         pumpsByReservoir.set(pump.reservoirId, []);
       }
-      pumpsByReservoir.get(pump.reservoirId)!.push(pump);
-    }
+      pumpsByReservoir.get(pump.reservoirId)!.push({ ...pump, index });
+    });
 
     for (const [id, reservoir] of reservoirs) {
       const clone = reservoirTemplate.content.cloneNode(true) as DocumentFragment;
-      const div = clone.querySelector(".reservoir-item") as HTMLElement;
       const titleEl = clone.querySelector(".reservoir-title") as HTMLElement;
       const removeBtn = clone.querySelector(".remove-btn") as HTMLButtonElement;
       const pumpsContainer = clone.querySelector(".reservoir-pumps") as HTMLElement;
 
-      if (div && titleEl && removeBtn && pumpsContainer) {
-        div.style.marginBottom = "8px";
-        div.style.fontSize = "12px";
+      if (titleEl && removeBtn && pumpsContainer) {
+        titleEl.textContent = `Pipe System ${id} - ${reservoir.volume.toFixed(1)} water`;
 
-        titleEl.textContent = `Pipe System ${id} at (${reservoir.x}, ${reservoir.y}) - ${
-          reservoir.waterStored.toFixed(1)
-        } water`;
-
-        removeBtn.style.cssText =
-          "margin-left: 8px; padding: 2px 6px; font-size: 11px; background: var(--red-6); color: white; border: none; border-radius: 3px; cursor: pointer;";
         removeBtn.addEventListener("click", () => {
           this.callbacks.removeReservoir(id);
           this.callbacks.updateControls();
@@ -227,42 +215,36 @@ export class DebugDisplay {
 
         const systemPumps = pumpsByReservoir.get(id) || [];
         if (systemPumps.length > 0) {
-          pumpsContainer.style.marginLeft = "12px";
-          pumpsContainer.style.fontSize = "11px";
-
           const pumpsTitle = document.createElement("div");
+          pumpsTitle.className = "reservoir-pumps-title";
           pumpsTitle.textContent = `${systemPumps.length} pump(s):`;
           pumpsContainer.appendChild(pumpsTitle);
 
-          for (let i = 0; i < pumps.length; i++) {
-            const pump = pumps[i]!;
-            if (pump.reservoirId === id) {
-              const pumpClone = pumpTemplate.content.cloneNode(true) as DocumentFragment;
-              const pumpDiv = pumpClone.querySelector(".pump-item") as HTMLElement;
-              const colorBox = pumpClone.querySelector(".pump-color-box") as HTMLElement;
-              const pumpInfo = pumpClone.querySelector(".pump-info") as HTMLElement;
-              const removePumpBtn = pumpClone.querySelector(".remove-btn") as HTMLButtonElement;
+          for (const pumpWithIndex of systemPumps) {
+            const pumpClone = pumpTemplate.content.cloneNode(true) as DocumentFragment;
+            const colorBox = pumpClone.querySelector(".pump-color-box") as HTMLElement;
+            const pumpInfo = pumpClone.querySelector(".pump-info") as HTMLElement;
+            const removePumpBtn = pumpClone.querySelector(".remove-btn") as HTMLButtonElement;
 
-              if (pumpDiv && colorBox && pumpInfo && removePumpBtn) {
-                pumpDiv.style.marginLeft = "24px";
+            if (colorBox && pumpInfo && removePumpBtn) {
+              // Set color based on mode
+              const pumpColor = pumpWithIndex.mode === "inlet"
+                ? UI_CONSTANTS.RENDERING.COLORS.PUMPS.INLET
+                : UI_CONSTANTS.RENDERING.COLORS.PUMPS.OUTLET;
 
-                colorBox.style.cssText =
-                  `display: inline-block; width: 12px; height: 12px; background: ${pump.color}; margin-right: 4px; border: 1px solid var(--gray-6);`;
+              colorBox.style.backgroundColor = pumpColor;
+              pumpInfo.textContent =
+                `(${pumpWithIndex.x}, ${pumpWithIndex.y}) - ${pumpWithIndex.mode}`;
 
-                pumpInfo.textContent = `(${pump.x}, ${pump.y}) - ${pump.mode} `;
+              removePumpBtn.addEventListener("click", () => {
+                this.callbacks.removePump(pumpWithIndex.index);
+                this.callbacks.updateControls();
+                this.callbacks.updateDisplays();
+                this.callbacks.updateDebugDisplays();
+                this.callbacks.draw();
+              });
 
-                removePumpBtn.style.cssText =
-                  "margin-left: 8px; padding: 2px 6px; font-size: 11px; background: var(--red-6); color: white; border: none; border-radius: 3px; cursor: pointer;";
-                removePumpBtn.addEventListener("click", () => {
-                  this.callbacks.removePump(i);
-                  this.callbacks.updateControls();
-                  this.callbacks.updateDisplays();
-                  this.callbacks.updateDebugDisplays();
-                  this.callbacks.draw();
-                });
-
-                pumpsContainer.appendChild(pumpClone);
-              }
+              pumpsContainer.appendChild(pumpClone);
             }
           }
         }
@@ -284,7 +266,7 @@ export class DebugDisplay {
   }
 
   createInteractiveBasinDisplay(): void {
-    const debugBasinsDiv = document.getElementById("debugBasins");
+    const debugBasinsDiv = document.getElementById("basinsText");
     if (!debugBasinsDiv) return;
 
     const basins = this.basinManager.basins;
