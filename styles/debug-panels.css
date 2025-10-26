@@ -187,16 +187,16 @@
   }
 
   .inlet-badge {
-    background: var(--green-3);
-    color: var(--green-9);
+    background: var(--red-3);
+    color: var(--red-9);
     &::before {
         content: '-> ';
     }
   }
 
   .outlet-badge {
-    background: var(--red-3);
-    color: var(--red-9);
+    background: var(--green-3);
+    color: var(--green-9);
     &::after {
         content: ' ->';
     }
