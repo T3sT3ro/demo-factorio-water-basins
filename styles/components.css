@@ -52,7 +52,7 @@
   /* Button and select defaults */
   button,
   select {
-    padding: var(--size-2) var(--size-3);
+    padding: var(--size-1) var(--size-2);
     cursor: pointer;
   }
 }
