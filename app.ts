@@ -132,7 +132,8 @@ class TilemapWaterPumpingApp {
     this.inputController = new InputController(this.canvas, this.renderer, inputCallbacks);
 
     // Setup callbacks
-    this.debugDisplay.setBasinHighlightChangeCallback((_basinId) => {
+    this.debugDisplay.setBasinHighlightChangeCallback((basinId) => {
+      this.gameState.getBasinManager().setHighlightedBasin(basinId);
       this.updateCoordinator.onBasinHighlightChange();
     });
 
