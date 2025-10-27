@@ -4,14 +4,7 @@ import { CONFIG } from "../config.ts";
 import { BaseLayerRenderer } from "./LayerRenderer.ts";
 import { getWaterColor } from "./ColorUtils.ts";
 import type { CameraController } from "./CameraController.ts";
-
-interface BasinData {
-  tiles: Set<string>;
-  volume: number;
-  level: number;
-  height: number;
-  outlets: string[];
-}
+import type { BasinData } from "../basins/index.ts";
 
 export class WaterLayerRenderer extends BaseLayerRenderer {
   private basins = new Map<string, BasinData>();

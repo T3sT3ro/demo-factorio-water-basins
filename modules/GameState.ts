@@ -119,13 +119,6 @@ export class GameState {
     });
   }
 
-  setDepthAt(x: number, y: number, depth: number): void {
-    if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-      this.heights[y]![x] = Math.max(0, Math.min(CONFIG.MAX_DEPTH, depth));
-      this.recomputeAll();
-    }
-  }
-
   setDepthAtBatch(x: number, y: number, depth: number): void {
     if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
       this.heights[y]![x] = Math.max(0, Math.min(CONFIG.MAX_DEPTH, depth));
@@ -134,41 +127,6 @@ export class GameState {
 
   revalidateMap(): void {
     this.recomputeAll();
-  }
-
-  increaseDepthAt(x: number, y: number): void {
-    if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-      this.heights[y]![x] = Math.min(CONFIG.MAX_DEPTH, this.heights[y]![x]! + 1);
-      this.recomputeAll();
-    }
-  }
-
-  decreaseDepthAt(x: number, y: number): void {
-    if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-      this.heights[y]![x] = Math.max(0, this.heights[y]![x]! - 1);
-      this.recomputeAll();
-    }
-  }
-
-  setToMinNeighborHeight(x: number, y: number): void {
-    if (x >= 0 && y >= 0 && x < CONFIG.WORLD_W && y < CONFIG.WORLD_H) {
-      const minHeight = this.getMinNeighborHeight(x, y);
-      this.heights[y]![x] = minHeight;
-      this.recomputeAll();
-    }
-  }
-
-  getMinNeighborHeight(x: number, y: number): number {
-    let minHeight = CONFIG.MAX_DEPTH + 1;
-    const neighbors: [number, number][] = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
-
-    for (const [nx, ny] of neighbors) {
-      if (nx >= 0 && ny >= 0 && nx < CONFIG.WORLD_W && ny < CONFIG.WORLD_H) {
-        minHeight = Math.min(minHeight, this.heights[ny]![nx]!);
-      }
-    }
-
-    return minHeight <= CONFIG.MAX_DEPTH ? minHeight : this.heights[y]![x]!;
   }
 
   // Pump operations
@@ -208,11 +166,6 @@ export class GameState {
 
   getSelectedReservoir(): number | null {
     return this.reservoirManager.getSelectedReservoir();
-  }
-
-  // Basin highlighting
-  setHighlightedBasin(basinId: string | null): void {
-    this.basinManager.setHighlightedBasin(basinId);
   }
 
   getHighlightedBasin(): string | null {

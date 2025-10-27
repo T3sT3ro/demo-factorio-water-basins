@@ -4,8 +4,8 @@ import { UI_CONSTANTS } from "../constants.ts";
 import type { Pump } from "../pumps.ts";
 import type { BasinData } from "../basins/index.ts";
 import type { CameraController } from "./CameraController.ts";
-import type { LabelSettings } from "./renderer.ts";
 import { BasinLabelManager } from "../labels.ts";
+import { UISettings } from "../ui/UISettings.ts";
 
 /**
  * Renders interactive elements: pumps, labels, and basin highlights
@@ -15,7 +15,7 @@ export class InteractiveLayerRenderer extends BaseLayerRenderer {
   private selectedReservoirId: number | null = null;
   private heights: number[][] = [];
   private basins = new Map<string, BasinData>();
-  private labelSettings: LabelSettings = {
+  private uiSettings: UISettings = {
     showDepthLabels: false,
     showBasinLabels: false,
     showPumpLabels: false,
@@ -32,13 +32,13 @@ export class InteractiveLayerRenderer extends BaseLayerRenderer {
     selectedReservoirId: number | null,
     heights: number[][],
     basins: Map<string, BasinData>,
-    labelSettings: LabelSettings,
+    uiSettings: UISettings,
   ): void {
     this.pumps = pumps;
     this.selectedReservoirId = selectedReservoirId;
     this.heights = heights;
     this.basins = basins;
-    this.labelSettings = labelSettings;
+    this.uiSettings = uiSettings;
   }
 
   render(ctx: CanvasRenderingContext2D, camera: CameraController): void {
@@ -96,11 +96,11 @@ export class InteractiveLayerRenderer extends BaseLayerRenderer {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    if (this.labelSettings.showDepthLabels) {
+    if (this.uiSettings.showDepthLabels) {
       this.renderDepthLabels(ctx);
     }
 
-    if (this.labelSettings.showBasinLabels) {
+    if (this.uiSettings.showBasinLabels) {
       this.basinLabelManager.draw(
         ctx,
         this.basins,
@@ -110,7 +110,7 @@ export class InteractiveLayerRenderer extends BaseLayerRenderer {
       );
     }
 
-    if (this.labelSettings.showPumpLabels) {
+    if (this.uiSettings.showPumpLabels) {
       this.renderPumpLabels(ctx, camera);
     }
   }

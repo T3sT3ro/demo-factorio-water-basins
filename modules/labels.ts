@@ -2,6 +2,7 @@
 
 import { CONFIG } from "./config.ts";
 import type { Pump } from "./pumps.ts";
+import type { BasinData } from "./basins/index.ts";
 
 interface Label {
   id: string;
@@ -17,14 +18,6 @@ interface Obstacle {
   x: number;
   y: number;
   type: string;
-}
-
-interface BasinData {
-  tiles: Set<string>;
-  volume: number;
-  level: number;
-  height: number;
-  outlets: string[];
 }
 
 export class BasinLabelManager {

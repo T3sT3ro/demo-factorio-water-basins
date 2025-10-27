@@ -18,13 +18,6 @@ export const CONFIG = {
 };
 
 /**
- * Helper to create 2D array filled with initial value
- */
-export function Array2D<T>(w: number, h: number, initialValue: T): T[][] {
-  return Array.from({ length: h }, () => Array(w).fill(initialValue));
-}
-
-/**
  * Setup canvas element and context
  */
 export function setupCanvas() {
