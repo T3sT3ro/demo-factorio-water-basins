@@ -103,7 +103,11 @@ export class DebugDisplay {
     console.log("=== Basin Outlet Relationships ===");
     for (const [id, basin] of basins) {
       const feeders = childrenOfBasin.get(id) || [];
-      console.log(`${id}: outlets=[${basin.outlets.join(", ") || "none"}], feeders=[${feeders.join(", ") || "none"}]`);
+      console.log(
+        `${id}: outlets=[${basin.outlets.join(", ") || "none"}], feeders=[${
+          feeders.join(", ") || "none"
+        }]`,
+      );
     }
     console.log("==================================");
 
@@ -136,30 +140,35 @@ export class DebugDisplay {
     console.log(`║ Total basins: ${basins.size.toString().padEnd(44)}║`);
     console.log(`║ Root basins:  ${rootBasins.length.toString().padEnd(44)}║`);
     console.log("╚════════════════════════════════════════════════════════════╝\n");
-    
-    function printTree(entry: BasinEntry, indent: number = 0, isLast: boolean = true, prefix: string = ""): void {
+
+    function printTree(
+      entry: BasinEntry,
+      indent: number = 0,
+      isLast: boolean = true,
+      prefix: string = "",
+    ): void {
       const connector = isLast ? "└─" : "├─";
       const childPrefix = prefix + (isLast ? "  " : "│ ");
-      
+
       const heightLabel = entry.basin.height === 0 ? "Surface" : `H${entry.basin.height}`;
       const waterPercent = entry.basin.volume > 0
         ? ((entry.basin.volume / entry.maxCapacity) * 100).toFixed(1)
         : "0.0";
-      const outletStr = entry.basin.outlets.length > 0 
-        ? ` → [${entry.basin.outlets.join(", ")}]` 
+      const outletStr = entry.basin.outlets.length > 0
+        ? ` → [${entry.basin.outlets.join(", ")}]`
         : "";
-      
+
       console.log(
-        `${prefix}${connector} ${entry.id} (${heightLabel}, ${entry.basin.tiles.size} tiles, ${waterPercent}% full)${outletStr}`
+        `${prefix}${connector} ${entry.id} (${heightLabel}, ${entry.basin.tiles.size} tiles, ${waterPercent}% full)${outletStr}`,
       );
-      
+
       for (let i = 0; i < entry.children.length; i++) {
         const child = entry.children[i]!;
         const childIsLast = i === entry.children.length - 1;
         printTree(child, indent + 1, childIsLast, childPrefix);
       }
     }
-    
+
     if (rootBasins.length === 0) {
       console.log("  (no basins)\n");
     } else {
@@ -197,7 +206,8 @@ export class DebugDisplay {
         : "0.0";
 
       idEl.textContent = entry.id;
-      infoEl.textContent = ` (${heightLabel}, ${entry.basin.tiles.size} tiles, ${waterPercent}% full)`;
+      infoEl.textContent =
+        ` (${heightLabel}, ${entry.basin.tiles.size} tiles, ${waterPercent}% full)`;
 
       // Store basin ID for interaction
       li.dataset.basinId = entry.id;
@@ -301,8 +311,9 @@ export class DebugDisplay {
       if (titleEl && removeBtn && pumpsContainer) {
         const systemPumps = pumpsByReservoir.get(id) || [];
         const pumpCount = systemPumps.length;
-        titleEl.textContent =
-          `Pipe System ${id} - ${reservoir.volume.toFixed(1)} water (${pumpCount} pump${pumpCount !== 1 ? "s" : ""})`;
+        titleEl.textContent = `Pipe System ${id} - ${
+          reservoir.volume.toFixed(1)
+        } water (${pumpCount} pump${pumpCount !== 1 ? "s" : ""})`;
 
         removeBtn.addEventListener("click", () => {
           this.callbacks.removeReservoir(id);
@@ -316,7 +327,7 @@ export class DebugDisplay {
           const table = document.createElement("table");
           table.className = "pumps-table";
           const tbody = document.createElement("tbody");
-          
+
           systemPumps.forEach((pumpWithIndex, pumpIndex) => {
             const pumpClone = pumpTemplate.content.cloneNode(true) as DocumentFragment;
             const pumpLabel = pumpClone.querySelector(".pump-label") as HTMLElement;
@@ -327,10 +338,12 @@ export class DebugDisplay {
             if (pumpLabel && pumpCoords && pumpTypeBadge && removePumpBtn) {
               pumpLabel.textContent = `P${id}.${pumpIndex + 1}`;
               pumpCoords.textContent = `(${pumpWithIndex.x}, ${pumpWithIndex.y})`;
-              
+
               // Set badge style and text based on mode
               pumpTypeBadge.textContent = pumpWithIndex.mode;
-              pumpTypeBadge.classList.add(pumpWithIndex.mode === "inlet" ? "inlet-badge" : "outlet-badge");
+              pumpTypeBadge.classList.add(
+                pumpWithIndex.mode === "inlet" ? "inlet-badge" : "outlet-badge",
+              );
 
               removePumpBtn.addEventListener("click", () => {
                 this.callbacks.removePump(pumpWithIndex.index);
@@ -343,7 +356,7 @@ export class DebugDisplay {
               tbody.appendChild(pumpClone);
             }
           });
-          
+
           table.appendChild(tbody);
           pumpsContainer.appendChild(table);
         }

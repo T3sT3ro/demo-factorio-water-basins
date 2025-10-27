@@ -313,7 +313,8 @@
         background: var(--border-color-1);
         padding: var(--size-1) var(--size-3);
         border-radius: var(--radius-2);
-        font-family: var(--font-mono), "Courier New", monospace;
+        font-family:
+          var(--font-mono), "Courier New", monospace;
         font-size: var(--font-size-0);
         display: inline-block;
         text-align: center;
