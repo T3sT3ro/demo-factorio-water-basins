@@ -65,8 +65,14 @@ class TilemapWaterPumpingApp {
     this.canvas = canvas;
     this.renderer = new Renderer(canvas, ctx);
 
-    // Initialize game state
-    this.gameState = new GameState();
+    // Read seed from URL parameter
+    const urlParams = new URLSearchParams(globalThis.location.search);
+    const seedParam = urlParams.get("seed");
+    const initialSeed = seedParam ? parseFloat(seedParam) : Math.random() * 1000;
+
+    // Initialize game state with seed
+    this.gameState = new GameState(initialSeed);
+    this.updateSeedInURL(initialSeed);
 
     // Initialize UI components
     this.uiSettings = new UISettings();
@@ -140,6 +146,10 @@ class TilemapWaterPumpingApp {
       this.updateCoordinator.onBasinHighlightChange();
     });
 
+    this.gameState.setOnSeedChange((seed) => {
+      this.updateSeedInURL(seed);
+    });
+
     // Initialize basin debug generator
     this.basinDebugGenerator = new BasinDebugGenerator(this.gameState.getBasinManager());
 
@@ -179,8 +189,19 @@ class TilemapWaterPumpingApp {
     this.draw();
   }
 
+  private updateSeedInURL(seed: number): void {
+    const url = new URL(globalThis.location.href);
+    url.searchParams.set("seed", seed.toString());
+    globalThis.history.replaceState({}, "", url);
+  }
+
   private onNoiseSettingsChanged(): void {
     performance.mark("noise-settings-change-start");
+
+    // Exit debug mode if active and cleanup
+    if (this.basinDebugGenerator.isInDebugMode()) {
+      this.exitBasinDebugMode();
+    }
 
     performance.mark("terrain-regeneration-start");
     this.gameState.regenerateWithCurrentSettings();
@@ -536,6 +557,29 @@ class TilemapWaterPumpingApp {
     this.updateCoordinator.onBasinsChange();
   }
 
+  private exitBasinDebugMode(): void {
+    if (!this.basinDebugGenerator.isInDebugMode()) return;
+
+    console.log("Exiting basin debug mode");
+
+    // Reset UI
+    const startBasinDebugBtn = document.getElementById("startBasinDebugBtn");
+    const basinDebugControls = document.getElementById("basinDebugControls");
+    if (startBasinDebugBtn && basinDebugControls) {
+      startBasinDebugBtn.style.display = "";
+      basinDebugControls.style.display = "none";
+    }
+
+    // Force generator to complete by stepping with "finish" until done
+    let result = this.basinDebugGenerator.step("finish");
+    while (!result.complete) {
+      result = this.basinDebugGenerator.step("finish");
+    }
+
+    // Clear debug overlay
+    this.updateCoordinator.onBasinsChange();
+  }
+
   private stepBasinDebug(granularity: DebugStepGranularity): void {
     const result = this.basinDebugGenerator.step(granularity);
 
@@ -551,8 +595,6 @@ class TilemapWaterPumpingApp {
         basinDebugControls.style.display = "none";
       }
       console.log("Basin debug mode complete");
-    } else if (result.currentTile) {
-      console.log(`Processing tile: (${result.currentTile.x}, ${result.currentTile.y})`);
     }
   }
 

@@ -72,25 +72,31 @@ export class GameState {
   tickCounter: number;
   currentSeed: number;
   heights: number[][];
+  private onSeedChange?: (seed: number) => void;
 
-  constructor() {
+  constructor(initialSeed?: number) {
     this.heightGenerator = new HeightGenerator(CONFIG.WORLD_W, CONFIG.WORLD_H, CONFIG.MAX_DEPTH);
     this.basinManager = new BasinManager();
     this.reservoirManager = new ReservoirManager();
     this.pumpManager = new PumpManager(this.reservoirManager, this.basinManager);
 
     this.tickCounter = 0;
-    this.currentSeed = 0;
+    this.currentSeed = initialSeed ?? 0;
 
     // Initialize terrain
     this.heights = this.heightGenerator.generate(this.currentSeed);
     this.basinManager.computeBasins(this.heights);
   }
 
+  setOnSeedChange(callback: (seed: number) => void): void {
+    this.onSeedChange = callback;
+  }
+
   // Terrain operations
   randomizeHeights(): void {
     this.currentSeed = Math.random() * 1000;
     console.log("Randomized heights with seed:", this.currentSeed);
+    this.onSeedChange?.(this.currentSeed);
     this.heights = this.heightGenerator.generate(this.currentSeed);
     this.recomputeAll();
   }
