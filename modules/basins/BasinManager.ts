@@ -2,7 +2,7 @@
 
 import { CONFIG } from "../config.ts";
 import { computeBasinsGenerator } from "./BasinComputation.ts";
-import type { BasinData, BasinDebugInfo } from "./types.ts";
+import type { BasinData } from "./types.ts";
 
 export class BasinManager {
   basins: Map<string, BasinData>;
@@ -122,81 +122,5 @@ export class BasinManager {
 
   getHighlightedBasin(): string | null {
     return this.highlightedBasin;
-  }
-
-  getDebugInfo(heights: number[][]): BasinDebugInfo {
-    const connections = new Map<string, Set<string>>();
-    const basinArray = Array.from(this.basins.entries()).sort((a, b) => {
-      const [levelA, lettersA] = a[0].split("#");
-      const [levelB, lettersB] = b[0].split("#");
-      if (levelA !== levelB) return parseInt(levelA!) - parseInt(levelB!);
-      return lettersA!.localeCompare(lettersB!);
-    });
-
-    basinArray.forEach(([id, basin]) => {
-      connections.set(id, new Set());
-      basin.tiles.forEach((tileKey) => {
-        const parts = tileKey.split(",");
-        const tx = parseInt(parts[0]!);
-        const ty = parseInt(parts[1]!);
-
-        const directions: [number, number][] = [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-          [1, 1],
-          [-1, -1],
-          [1, -1],
-          [-1, 1],
-        ];
-
-        directions.forEach(([dx, dy]) => {
-          const nx = tx + dx, ny = ty + dy;
-          if (nx >= 0 && ny >= 0 && nx < CONFIG.WORLD_W && ny < CONFIG.WORLD_H) {
-            const neighborBasinId = this.basinIdOf[ny]![nx];
-            if (neighborBasinId && neighborBasinId !== id) {
-              const isDiagonal = Math.abs(dx) + Math.abs(dy) === 2;
-              if (isDiagonal && heights) {
-                const cross1x = tx + dx, cross1y = ty;
-                const cross2x = tx, cross2y = ty + dy;
-
-                if (
-                  cross1x >= 0 && cross1x < CONFIG.WORLD_W && cross1y >= 0 &&
-                  cross1y < CONFIG.WORLD_H &&
-                  cross2x >= 0 && cross2x < CONFIG.WORLD_W && cross2y >= 0 &&
-                  cross2y < CONFIG.WORLD_H
-                ) {
-                  const cross1IsLand = heights[cross1y]![cross1x] === 0;
-                  const cross2IsLand = heights[cross2y]![cross2x] === 0;
-
-                  if (cross1IsLand && cross2IsLand) return;
-                }
-              }
-
-              connections.get(id)!.add(neighborBasinId);
-            }
-          }
-        });
-      });
-    });
-
-    const basinCount = this.basins.size;
-    const maxDepth = basinArray.length > 0
-      ? Math.max(...basinArray.map(([id]) => parseInt(id.split("#")[0]!)))
-      : 0;
-
-    let maxDegree = 0;
-    connections.forEach((connectionSet) => {
-      maxDegree = Math.max(maxDegree, connectionSet.size);
-    });
-
-    return {
-      basinCount,
-      maxDepth,
-      maxDegree,
-      basinArray,
-      connections,
-    };
   }
 }

@@ -1,7 +1,7 @@
 // Rendering and drawing functionality
 
 import type { Pump } from "../pumps.ts";
-import type { BasinManager, DebugState } from "../basins/index.ts";
+import type { BasinData, BasinManager, DebugState } from "../basins/index.ts";
 import { CONFIG } from "../config.ts";
 import { CameraController } from "./CameraController.ts";
 import { LayerManager } from "./LayerManager.ts";
@@ -11,29 +11,8 @@ import { InfrastructureLayerRenderer } from "./InfrastructureLayerRenderer.ts";
 import { InteractiveLayerRenderer } from "./InteractiveLayerRenderer.ts";
 import { HighlightLayerRenderer } from "./HighlightLayerRenderer.ts";
 import { BrushOverlayRenderer, BrushPreviewRenderer } from "./BrushRenderer.ts";
-
-export interface LabelSettings {
-  showDepthLabels: boolean;
-  showBasinLabels: boolean;
-  showPumpLabels: boolean;
-}
-
-interface BasinData {
-  tiles: Set<string>;
-  volume: number;
-  level: number;
-  height: number;
-  outlets: string[];
-}
-
-interface GameState {
-  getHeights(): number[][];
-  getPumpsByReservoir(): Map<number, Array<Pump & { index: number }>>;
-  getBasins(): Map<string, BasinData>;
-  getBasinManager(): BasinManager;
-  getHighlightedBasin(): string | null;
-  getPumps(): Pump[];
-}
+import { GameState } from "../GameState.ts";
+import { UISettings } from "../ui/UISettings.ts";
 
 export class Renderer {
   canvas: HTMLCanvasElement;
@@ -137,7 +116,7 @@ export class Renderer {
     selectedReservoirId: number | null,
     heights: number[][],
     basins: Map<string, BasinData>,
-    labelSettings: LabelSettings,
+    uiSettings: UISettings,
   ): void {
     if (!this.layerManager.isDirty("interactive")) return;
 
@@ -147,7 +126,7 @@ export class Renderer {
       selectedReservoirId,
       heights,
       basins,
-      labelSettings,
+      uiSettings,
     );
     this.interactiveRenderer.render(interactiveLayer.ctx, this.cameraController);
 
@@ -170,7 +149,7 @@ export class Renderer {
 
   render(
     gameState: GameState,
-    uiSettings: LabelSettings,
+    uiSettings: UISettings,
     selectedReservoirId: number | null,
     brushOverlay: Map<string, number>,
     brushCenter: { x: number; y: number } | null,

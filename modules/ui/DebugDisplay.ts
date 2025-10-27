@@ -1,6 +1,7 @@
 // Debug display for basins, reservoirs, and pumps with interactive management
 
-import type { BasinManager } from "../basins/index.ts";
+import type { BasinData, BasinManager } from "../basins/index.ts";
+import { GameState } from "../GameState.ts";
 
 export interface DebugDisplayCallbacks {
   removePump: (index: number) => void;
@@ -12,32 +13,12 @@ export interface DebugDisplayCallbacks {
   draw: () => void;
 }
 
-interface BasinData {
-  tiles: Set<string>;
-  volume: number;
-  level: number;
-  height: number;
-  outlets: string[];
-}
-
 interface BasinEntry {
   id: string;
   height: number;
   basin: BasinData;
   maxCapacity: number;
   children: BasinEntry[];
-}
-
-interface GameState {
-  basinManager: BasinManager;
-  selectedBasinId: string | null;
-  getPumps(): Array<{
-    x: number;
-    y: number;
-    reservoirId: number;
-    mode: "inlet" | "outlet";
-  }>;
-  getReservoirs(): Map<number, { volume: number }>;
 }
 
 export class DebugDisplay {

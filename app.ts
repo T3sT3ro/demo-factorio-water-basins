@@ -77,18 +77,18 @@ class TilemapWaterPumpingApp {
     // Initialize UI components
     this.uiSettings = new UISettings();
     this.noiseControlUI = new NoiseControlUI(
-      this.gameState.getHeightGenerator().getNoiseSettings(),
+      this.gameState.heightGenerator.getNoiseSettings(),
       () => this.onNoiseSettingsChanged(),
     );
 
     const callbacks: DebugDisplayCallbacks = {
       removePump: (index) => {
-        this.gameState.getPumpManager().removePump(index);
+        this.gameState.pumpManager.removePump(index);
         this.renderer.onPumpsChanged();
       },
       removeReservoir: (id) => {
-        this.gameState.getPumpManager().removePumpsByReservoir(id);
-        this.gameState.getReservoirManager().removeReservoir(id);
+        this.gameState.pumpManager.removePumpsByReservoir(id);
+        this.gameState.reservoirManager.removeReservoir(id);
         this.renderer.onPumpsChanged();
         this.renderer.onWaterChanged();
       },
@@ -100,7 +100,7 @@ class TilemapWaterPumpingApp {
     };
 
     this.debugDisplay = new DebugDisplay(
-      this.gameState.getBasinManager(),
+      this.gameState.basinManager,
       // deno-lint-ignore no-explicit-any
       this.gameState as any,
       callbacks,
@@ -142,7 +142,7 @@ class TilemapWaterPumpingApp {
 
     // Setup callbacks
     this.debugDisplay.setBasinHighlightChangeCallback((basinId) => {
-      this.gameState.getBasinManager().setHighlightedBasin(basinId);
+      this.gameState.basinManager.setHighlightedBasin(basinId);
       this.updateCoordinator.onBasinHighlightChange();
     });
 
@@ -151,7 +151,7 @@ class TilemapWaterPumpingApp {
     });
 
     // Initialize basin debug generator
-    this.basinDebugGenerator = new BasinDebugController(this.gameState.getBasinManager());
+    this.basinDebugGenerator = new BasinDebugController(this.gameState.basinManager);
 
     this.initialize();
   }
@@ -474,7 +474,7 @@ class TilemapWaterPumpingApp {
     const basinInfoEl = document.getElementById("basinInfo");
     if (basinInfoEl) {
       if (tileInfo && tileInfo.basinId) {
-        const basinManager = this.gameState.getBasinManager();
+        const basinManager = this.gameState.basinManager;
         const basin = basinManager.basins.get(tileInfo.basinId);
         if (basin) {
           const maxCapacity = basin.tiles.size * CONFIG.VOLUME_UNIT * CONFIG.MAX_DEPTH;
@@ -498,8 +498,8 @@ class TilemapWaterPumpingApp {
     }
 
     const heights = this.gameState.getHeights();
-    const basinManager = this.gameState.getBasinManager();
-    const pumps = this.gameState.getPumps();
+    const basinManager = this.gameState.basinManager;
+    const pumps = this.gameState.pumpManager.getAllPumps();
 
     const depth = heights[y]![x]!;
     const basinId = basinManager.getBasinIdAt(x, y);
@@ -548,7 +548,7 @@ class TilemapWaterPumpingApp {
   private updateDebugDisplays(): void {
     this.debugDisplay.updateBasinsDisplay();
     this.debugDisplay.updateReservoirsDisplay();
-    this.debugDisplay.updateTickCounter(this.gameState.getTickCounter());
+    this.debugDisplay.updateTickCounter(this.gameState.tickCounter);
   }
 
   private startBasinDebugMode(): void {
