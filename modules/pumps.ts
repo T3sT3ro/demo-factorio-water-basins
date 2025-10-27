@@ -1,7 +1,7 @@
 // Pump and reservoir management system
 
 import { CONFIG } from "./config.ts";
-import type { BasinManager } from "./basins.ts";
+import type { BasinManager } from "./basins/index.ts";
 
 export interface Reservoir {
   volume: number;

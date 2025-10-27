@@ -1,6 +1,6 @@
 // Debug display for basins, reservoirs, and pumps with interactive management
 
-import type { BasinManager } from "../basins.ts";
+import type { BasinManager } from "../basins/index.ts";
 
 export interface DebugDisplayCallbacks {
   removePump: (index: number) => void;
