@@ -3,7 +3,7 @@
 import { CONFIG } from "./config.ts";
 import { HeightGenerator } from "./noise/NoiseGenerator.ts";
 import type { NoiseSettings } from "./noise/NoiseSettings.ts";
-import { BasinManager } from "./basins.ts";
+import { BasinManager } from "./basins/index.ts";
 import { PumpManager, ReservoirManager } from "./pumps.ts";
 
 interface Reservoir {

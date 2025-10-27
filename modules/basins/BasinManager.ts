@@ -1,23 +1,8 @@
-// Basin computation and management
+// Basin management - water levels, overflow, and queries
 
-import { CONFIG } from "./config.ts";
-import { computeBasinsGenerator } from "./BasinDebugGenerator.ts";
-
-export interface BasinData {
-  tiles: Set<string>;
-  volume: number;
-  level: number;
-  height: number;
-  outlets: string[];
-}
-
-interface BasinDebugInfo {
-  basinCount: number;
-  maxDepth: number;
-  maxDegree: number;
-  basinArray: [string, BasinData][];
-  connections: Map<string, Set<string>>;
-}
+import { CONFIG } from "../config.ts";
+import { computeBasinsGenerator } from "./BasinComputation.ts";
+import type { BasinData, BasinDebugInfo } from "./types.ts";
 
 export class BasinManager {
   basins: Map<string, BasinData>;
@@ -38,10 +23,8 @@ export class BasinManager {
   computeBasins(heights: number[][]): void {
     performance.mark("basin-computation-start");
 
-    // Use the generator to compute basins, running it to completion
     const generator = computeBasinsGenerator(heights, this);
-    
-    // Run generator to completion with "finish" granularity
+
     let result = generator.next("finish");
     while (!result.done) {
       result = generator.next("finish");
@@ -81,22 +64,17 @@ export class BasinManager {
     if (!basin) return;
 
     if (fillWithWater) {
-      // Fill with maximum water
       basin.volume = basin.tiles.size * CONFIG.VOLUME_UNIT * CONFIG.MAX_DEPTH;
     } else {
-      // Empty all water
       basin.volume = 0;
     }
 
-    // Update water levels immediately
     this.updateWaterLevels();
   }
 
   updateWaterLevels(): void {
-    // First, handle water overflow from higher to lower basins
     this.handleWaterOverflow();
 
-    // Then update individual basin levels
     this.basins.forEach((basin) => {
       const capacityPerLevel = basin.tiles.size * CONFIG.VOLUME_UNIT;
       basin.level = Math.floor(basin.volume / capacityPerLevel);
@@ -106,7 +84,6 @@ export class BasinManager {
   }
 
   handleWaterOverflow(): void {
-    // Process basins from deepest to shallowest to handle overflow cascade
     const sortedBasins = Array.from(this.basins.entries()).sort((a, b) =>
       b[1].height - a[1].height
     );
@@ -116,11 +93,9 @@ export class BasinManager {
 
       const maxCapacity = basin.tiles.size * CONFIG.VOLUME_UNIT * CONFIG.MAX_DEPTH;
       if (basin.volume > maxCapacity) {
-        // This basin is overflowing
         const overflow = basin.volume - maxCapacity;
         basin.volume = maxCapacity;
 
-        // Distribute overflow to outlet basins
         const outletCount = basin.outlets.length;
         const overflowPerOutlet = overflow / outletCount;
 
@@ -149,52 +124,43 @@ export class BasinManager {
     return this.highlightedBasin;
   }
 
-  // Get debug information about basins
   getDebugInfo(heights: number[][]): BasinDebugInfo {
     const connections = new Map<string, Set<string>>();
     const basinArray = Array.from(this.basins.entries()).sort((a, b) => {
-      // Sort by level first, then by letter sequence
       const [levelA, lettersA] = a[0].split("#");
       const [levelB, lettersB] = b[0].split("#");
       if (levelA !== levelB) return parseInt(levelA!) - parseInt(levelB!);
       return lettersA!.localeCompare(lettersB!);
     });
 
-    // Build connection graph
     basinArray.forEach(([id, basin]) => {
       connections.set(id, new Set());
       basin.tiles.forEach((tileKey) => {
         const parts = tileKey.split(",");
         const tx = parseInt(parts[0]!);
         const ty = parseInt(parts[1]!);
-        // Check all 8 directions for connections
+
         const directions: [number, number][] = [
           [1, 0],
           [-1, 0],
           [0, 1],
-          [0, -1], // Cardinal directions
+          [0, -1],
           [1, 1],
           [-1, -1],
           [1, -1],
-          [-1, 1], // Diagonal directions
+          [-1, 1],
         ];
 
         directions.forEach(([dx, dy]) => {
-          const nx = tx + dx,
-            ny = ty + dy;
+          const nx = tx + dx, ny = ty + dy;
           if (nx >= 0 && ny >= 0 && nx < CONFIG.WORLD_W && ny < CONFIG.WORLD_H) {
             const neighborBasinId = this.basinIdOf[ny]![nx];
             if (neighborBasinId && neighborBasinId !== id) {
-              // For diagonal connections, check if the diagonal crossing is blocked
               const isDiagonal = Math.abs(dx) + Math.abs(dy) === 2;
               if (isDiagonal && heights) {
-                // Check the two orthogonal neighbors that form the "crossing"
-                const cross1x = tx + dx;
-                const cross1y = ty;
-                const cross2x = tx;
-                const cross2y = ty + dy;
+                const cross1x = tx + dx, cross1y = ty;
+                const cross2x = tx, cross2y = ty + dy;
 
-                // Check for land blocking the diagonal
                 if (
                   cross1x >= 0 && cross1x < CONFIG.WORLD_W && cross1y >= 0 &&
                   cross1y < CONFIG.WORLD_H &&
@@ -204,7 +170,6 @@ export class BasinManager {
                   const cross1IsLand = heights[cross1y]![cross1x] === 0;
                   const cross2IsLand = heights[cross2y]![cross2x] === 0;
 
-                  // Block diagonal if both crossing tiles are land (complete blockage)
                   if (cross1IsLand && cross2IsLand) return;
                 }
               }
@@ -216,7 +181,6 @@ export class BasinManager {
       });
     });
 
-    // Calculate statistics
     const basinCount = this.basins.size;
     const maxDepth = basinArray.length > 0
       ? Math.max(...basinArray.map(([id]) => parseInt(id.split("#")[0]!)))

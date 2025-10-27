@@ -1,8 +1,7 @@
 // Rendering and drawing functionality
 
 import type { Pump } from "../pumps.ts";
-import type { BasinManager } from "../basins.ts";
-import type { DebugState } from "../BasinDebugGenerator.ts";
+import type { BasinManager, DebugState } from "../basins/index.ts";
 import { CONFIG } from "../config.ts";
 import { CameraController } from "./CameraController.ts";
 import { LayerManager } from "./LayerManager.ts";

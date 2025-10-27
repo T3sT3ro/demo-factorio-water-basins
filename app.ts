@@ -11,8 +11,8 @@ import { BrushTool } from "./modules/BrushTool.ts";
 import { UpdateCoordinator } from "./modules/UpdateCoordinator.ts";
 import { InputController } from "./modules/InputController.ts";
 import type { InputCallbacks } from "./modules/InputController.ts";
-import { BasinDebugGenerator } from "./modules/BasinDebugGenerator.ts";
-import type { DebugStepGranularity } from "./modules/BasinDebugGenerator.ts";
+import { BasinDebugController } from "./modules/basins/index.ts";
+import type { DebugStepGranularity } from "./modules/basins/index.ts";
 
 interface TileInfo {
   x: number;
@@ -41,7 +41,7 @@ class TilemapWaterPumpingApp {
   private brushTool!: BrushTool;
   private updateCoordinator!: UpdateCoordinator;
   private inputController!: InputController;
-  private basinDebugGenerator!: BasinDebugGenerator;
+  private basinDebugGenerator!: BasinDebugController;
 
   // UI state
   private selectedDepth: number;
@@ -151,7 +151,7 @@ class TilemapWaterPumpingApp {
     });
 
     // Initialize basin debug generator
-    this.basinDebugGenerator = new BasinDebugGenerator(this.gameState.getBasinManager());
+    this.basinDebugGenerator = new BasinDebugController(this.gameState.getBasinManager());
 
     this.initialize();
   }

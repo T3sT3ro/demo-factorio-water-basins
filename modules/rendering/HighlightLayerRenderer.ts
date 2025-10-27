@@ -1,9 +1,8 @@
 import { BaseLayerRenderer } from "./LayerRenderer.ts";
 import { CONFIG } from "../config.ts";
 import { UI_CONSTANTS } from "../constants.ts";
-import type { BasinManager } from "../basins.ts";
+import type { BasinManager, DebugState } from "../basins/index.ts";
 import type { CameraController } from "./CameraController.ts";
-import type { DebugState } from "../BasinDebugGenerator.ts";
 
 /**
  * Renders highlight elements: basin highlights and debug overlays

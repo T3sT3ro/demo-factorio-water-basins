@@ -2,7 +2,7 @@ import { BaseLayerRenderer } from "./LayerRenderer.ts";
 import { CONFIG } from "../config.ts";
 import { UI_CONSTANTS } from "../constants.ts";
 import type { Pump } from "../pumps.ts";
-import type { BasinData } from "../basins.ts";
+import type { BasinData } from "../basins/index.ts";
 import type { CameraController } from "./CameraController.ts";
 import type { LabelSettings } from "./renderer.ts";
 import { BasinLabelManager } from "../labels.ts";
