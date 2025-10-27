@@ -78,6 +78,22 @@ export const UI_CONSTANTS = {
         STROKE: "orange", // Orange outline for highlighted basins
       },
 
+      DEBUG_OVERLAY: {
+        PROCESSED: {
+          FILL: "rgba(100, 80, 255, 0.3)", // Purple for processed tiles
+          STROKE: "rgba(100, 80, 255, 0.6)",
+        },
+        PENDING: {
+          FILL: "rgba(255, 105, 180, 0.3)", // Pastel pink for pending tiles
+          STROKE: "rgba(255, 105, 180, 0.6)", // Hot pink stroke
+        },
+        ACTIVE: {
+          FILL: "rgba(0, 255, 0, 0.53)", // Bright green for active tile
+          STROKE: "rgba(0, 200, 0, 0.9)",
+          LINE_WIDTH_MULTIPLIER: 2, // Active tile has thicker border
+        },
+      },
+
       LABELS: {
         TEXT_LIGHT_BG: "black", // Text color on light backgrounds
         TEXT_DARK_BG: "white", // Text color on dark backgrounds

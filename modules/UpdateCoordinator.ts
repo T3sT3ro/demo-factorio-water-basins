@@ -40,6 +40,13 @@ export class UpdateCoordinator {
     this.draw();
   }
 
+  onBasinsChange(): void {
+    this.renderer.onWaterChanged();
+    this.renderer.onBasinHighlightChanged();
+    this.draw();
+    this.updateDebugDisplays();
+  }
+
   onDepthSelectionChange(): void {
     this.renderer.onDepthSelectionChanged();
     this.draw();

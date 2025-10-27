@@ -11,6 +11,8 @@ import { BrushTool } from "./modules/BrushTool.ts";
 import { UpdateCoordinator } from "./modules/UpdateCoordinator.ts";
 import { InputController } from "./modules/InputController.ts";
 import type { InputCallbacks } from "./modules/InputController.ts";
+import { BasinDebugGenerator } from "./modules/BasinDebugGenerator.ts";
+import type { DebugStepGranularity } from "./modules/BasinDebugGenerator.ts";
 
 interface TileInfo {
   x: number;
@@ -39,6 +41,7 @@ class TilemapWaterPumpingApp {
   private brushTool!: BrushTool;
   private updateCoordinator!: UpdateCoordinator;
   private inputController!: InputController;
+  private basinDebugGenerator!: BasinDebugGenerator;
 
   // UI state
   private selectedDepth: number;
@@ -136,6 +139,9 @@ class TilemapWaterPumpingApp {
       this.gameState.getBasinManager().setHighlightedBasin(basinId);
       this.updateCoordinator.onBasinHighlightChange();
     });
+
+    // Initialize basin debug generator
+    this.basinDebugGenerator = new BasinDebugGenerator(this.gameState.getBasinManager());
 
     this.initialize();
   }
@@ -368,6 +374,33 @@ class TilemapWaterPumpingApp {
       };
     }
 
+    // Basin debug mode controls
+    const startBasinDebugBtn = document.getElementById("startBasinDebugBtn");
+    const basinDebugControls = document.getElementById("basinDebugControls");
+    const basinDebugStepOne = document.getElementById("basinDebugStepOne");
+    const basinDebugStepStage = document.getElementById("basinDebugStepStage");
+    const basinDebugFinish = document.getElementById("basinDebugFinish");
+
+    if (startBasinDebugBtn && basinDebugControls) {
+      startBasinDebugBtn.onclick = () => {
+        this.startBasinDebugMode();
+        startBasinDebugBtn.style.display = "none";
+        basinDebugControls.style.display = "flex";
+      };
+    }
+
+    if (basinDebugStepOne) {
+      basinDebugStepOne.onclick = () => this.stepBasinDebug("one");
+    }
+
+    if (basinDebugStepStage) {
+      basinDebugStepStage.onclick = () => this.stepBasinDebug("stage");
+    }
+
+    if (basinDebugFinish) {
+      basinDebugFinish.onclick = () => this.stepBasinDebug("finish");
+    }
+
     const showDepthLabelsEl = document.getElementById("showDepthLabels");
     if (showDepthLabelsEl) {
       showDepthLabelsEl.onchange = () => {
@@ -497,7 +530,37 @@ class TilemapWaterPumpingApp {
     this.debugDisplay.updateTickCounter(this.gameState.getTickCounter());
   }
 
+  private startBasinDebugMode(): void {
+    console.log("Starting basin debug mode");
+    this.basinDebugGenerator.startDebugging(this.gameState.getHeights());
+    this.updateCoordinator.onBasinsChange();
+  }
+
+  private stepBasinDebug(granularity: DebugStepGranularity): void {
+    const result = this.basinDebugGenerator.step(granularity);
+
+    // Update display after each step
+    this.updateCoordinator.onBasinsChange();
+
+    if (result.complete) {
+      // Exit debug mode
+      const startBasinDebugBtn = document.getElementById("startBasinDebugBtn");
+      const basinDebugControls = document.getElementById("basinDebugControls");
+      if (startBasinDebugBtn && basinDebugControls) {
+        startBasinDebugBtn.style.display = "";
+        basinDebugControls.style.display = "none";
+      }
+      console.log("Basin debug mode complete");
+    } else if (result.currentTile) {
+      console.log(`Processing tile: (${result.currentTile.x}, ${result.currentTile.y})`);
+    }
+  }
+
   private draw(): void {
+    const debugState = this.basinDebugGenerator.isInDebugMode()
+      ? this.basinDebugGenerator.getDebugState()
+      : null;
+
     this.renderer.render(
       // deno-lint-ignore no-explicit-any
       this.gameState as any,
@@ -507,6 +570,7 @@ class TilemapWaterPumpingApp {
       this.brushTool.getCenter(),
       this.brushTool.getSize(),
       this.selectedDepth,
+      debugState,
     );
   }
 }

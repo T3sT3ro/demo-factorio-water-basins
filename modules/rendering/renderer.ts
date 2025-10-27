@@ -2,6 +2,7 @@
 
 import type { Pump } from "../pumps.ts";
 import type { BasinManager } from "../basins.ts";
+import type { DebugState } from "../BasinDebugGenerator.ts";
 import { CONFIG } from "../config.ts";
 import { CameraController } from "./CameraController.ts";
 import { LayerManager } from "./LayerManager.ts";
@@ -157,11 +158,12 @@ export class Renderer {
   private renderHighlightLayer(
     basinManager: BasinManager | null,
     highlightedBasin: string | null,
+    debugState: DebugState | null = null,
   ): void {
     if (!this.layerManager.isDirty("highlight")) return;
 
     const highlightLayer = this.layerManager.getLayer("highlight");
-    this.highlightRenderer.updateData(basinManager, highlightedBasin);
+    this.highlightRenderer.updateData(basinManager, highlightedBasin, debugState);
     this.highlightRenderer.render(highlightLayer.ctx, this.cameraController);
 
     this.layerManager.markClean("highlight");
@@ -175,6 +177,7 @@ export class Renderer {
     brushCenter: { x: number; y: number } | null,
     brushSize: number,
     selectedDepth: number,
+    debugState: DebugState | null = null,
   ): void {
     // Render each layer only if it's dirty
     this.renderTerrainLayer(gameState.getHeights());
@@ -189,6 +192,7 @@ export class Renderer {
     this.renderHighlightLayer(
       gameState.getBasinManager(),
       gameState.getHighlightedBasin(),
+      debugState,
     );
 
     this.renderInteractiveLayer(

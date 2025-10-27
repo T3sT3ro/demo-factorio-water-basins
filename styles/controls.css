@@ -13,11 +13,11 @@
       flex-wrap: wrap;
       block-size: 100%;
     }
-    
+
     & .button-row {
       display: flex;
       gap: var(--control-gap);
-      
+
       & > button {
         flex: 1;
       }

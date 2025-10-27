@@ -25,7 +25,8 @@
   .value-display {
     min-inline-size: var(--min-width-value);
     text-align: end;
-    font-family: var(--font-mono), "Courier New", monospace;
+    font-family:
+      var(--font-mono), "Courier New", monospace;
     font-size: var(--font-size-0);
     color: var(--text-2);
   }
