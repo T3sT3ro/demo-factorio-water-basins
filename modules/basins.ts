@@ -1,19 +1,7 @@
 // Basin computation and management
 
 import { CONFIG } from "./config.ts";
-
-// Generate letter sequence: a, b, c, ..., z, aa, ab, ac, ...
-function generateLetterSequence(index: number): string {
-  let result = "";
-  let num = index;
-
-  do {
-    result = String.fromCharCode(65 + (num % 26)) + result;
-    num = Math.floor(num / 26) - 1;
-  } while (num >= 0);
-
-  return result;
-}
+import { computeBasinsGenerator } from "./BasinDebugGenerator.ts";
 
 export interface BasinData {
   tiles: Set<string>;
@@ -50,224 +38,28 @@ export class BasinManager {
   computeBasins(heights: number[][]): void {
     performance.mark("basin-computation-start");
 
-    performance.mark("basin-clear-data-start");
-    // Clear existing basin data
-    this.basinIdOf.forEach((row) => row.fill(""));
-    this.basins.clear();
-    this.nextBasinId = 1;
-
-    const visited = new Array(CONFIG.WORLD_H);
-    for (let y = 0; y < CONFIG.WORLD_H; y++) {
-      visited[y] = new Array(CONFIG.WORLD_W).fill(false);
+    // Use the generator to compute basins, running it to completion
+    const generator = computeBasinsGenerator(heights, this);
+    
+    // Run generator to completion with "finish" granularity
+    let result = generator.next("finish");
+    while (!result.done) {
+      result = generator.next("finish");
     }
-    performance.mark("basin-clear-data-end");
-
-    performance.mark("basin-flood-fill-start");
-    // First pass: identify all potential basin tiles and their connectivity
-    type TempBasinData = { tiles: Set<string>; height: number; outlets: Set<TempBasinData> };
-    const basinsByLevel = new Map<number, TempBasinData[]>();
-    const tileToBasin = new Map<string, TempBasinData>();
-    let floodFillCount = 0;
-
-    for (let y = 0; y < CONFIG.WORLD_H; y++) {
-      for (let x = 0; x < CONFIG.WORLD_W; x++) {
-        if (visited[y]![x]) continue;
-        const height = heights[y]![x]!;
-
-        // Skip depth 0 (land/surface) - no basins on land
-        if (height === 0) {
-          visited[y]![x] = true;
-          continue;
-        }
-
-        // Flood fill to find all connected tiles at the current depth
-        const tiles = new Set<string>();
-        const stack: [number, number][] = [[x, y]];
-        while (stack.length) {
-          const [cx, cy] = stack.pop()!;
-          if (cx < 0 || cy < 0 || cx >= CONFIG.WORLD_W || cy >= CONFIG.WORLD_H) continue;
-          if (visited[cy]![cx]) continue;
-          if (heights[cy]![cx] !== height) continue; // Only same depth for this basin
-          visited[cy]![cx] = true;
-          tiles.add(cx + "," + cy);
-
-          // Check all 8 directions (4 cardinal + 4 diagonal)
-          const directions: [number, number][] = [
-            [1, 0],
-            [-1, 0],
-            [0, 1],
-            [0, -1], // Cardinal directions
-            [1, 1],
-            [-1, -1],
-            [1, -1],
-            [-1, 1], // Diagonal directions
-          ];
-
-          directions.forEach(([dx, dy]) => {
-            const nx = cx + dx,
-              ny = cy + dy;
-            if (nx < 0 || ny < 0 || nx >= CONFIG.WORLD_W || ny >= CONFIG.WORLD_H) return;
-            if (visited[ny]![nx]) return;
-            if (heights[ny]![nx] !== height) return; // Only same depth connections
-
-            // For diagonal connections, check if the diagonal crossing is blocked by land
-            const isDiagonal = Math.abs(dx) + Math.abs(dy) === 2;
-            if (isDiagonal) {
-              // Check the two orthogonal neighbors that form the "crossing"
-              const cross1x = cx + dx,
-                cross1y = cy;
-              const cross2x = cx,
-                cross2y = cy + dy;
-
-              // If both crossing tiles are within bounds, check for land blocking
-              if (
-                cross1x >= 0 && cross1x < CONFIG.WORLD_W && cross1y >= 0 &&
-                cross1y < CONFIG.WORLD_H &&
-                cross2x >= 0 && cross2x < CONFIG.WORLD_W && cross2y >= 0 && cross2y < CONFIG.WORLD_H
-              ) {
-                const cross1IsLand = heights[cross1y]![cross1x] === 0;
-                const cross2IsLand = heights[cross2y]![cross2x] === 0;
-
-                // Block diagonal if both crossing tiles are land (complete blockage)
-                if (cross1IsLand && cross2IsLand) return;
-              }
-            }
-
-            stack.push([nx, ny]);
-          });
-        }
-
-        if (tiles.size > 0 && height > 0) {
-          floodFillCount++;
-          const basinData: TempBasinData = { tiles, height, outlets: new Set() };
-
-          // Group by height level
-          if (!basinsByLevel.has(height)) {
-            basinsByLevel.set(height, []);
-          }
-          basinsByLevel.get(height)!.push(basinData);
-
-          // Map each tile to this basin
-          tiles.forEach((tileKey) => {
-            tileToBasin.set(tileKey, basinData);
-          });
-        }
-      }
-    }
-    performance.mark("basin-flood-fill-end");
-
-    performance.mark("basin-outlets-start");
-    // Second pass: find outlets for each basin (connections to lower depth basins)
-    basinsByLevel.forEach((basinsAtLevel, currentDepth) => {
-      basinsAtLevel.forEach((basin) => {
-        basin.tiles.forEach((tileKey) => {
-          const parts = tileKey.split(",");
-          const tx = parseInt(parts[0]!);
-          const ty = parseInt(parts[1]!);
-
-          // Check all 8 directions for outlet connections to lower depths
-          const directions: [number, number][] = [
-            [1, 0],
-            [-1, 0],
-            [0, 1],
-            [0, -1], // Cardinal directions
-            [1, 1],
-            [-1, -1],
-            [1, -1],
-            [-1, 1], // Diagonal directions
-          ];
-
-          directions.forEach(([dx, dy]) => {
-            const nx = tx + dx,
-              ny = ty + dy;
-            if (nx < 0 || ny < 0 || nx >= CONFIG.WORLD_W || ny >= CONFIG.WORLD_H) return;
-
-            const neighborHeight = heights[ny]![nx]!;
-            const neighborKey = nx + "," + ny;
-
-            // Check if neighbor is a lower depth basin (potential outlet)
-            if (
-              neighborHeight > 0 && neighborHeight < currentDepth && tileToBasin.has(neighborKey)
-            ) {
-              const neighborBasin = tileToBasin.get(neighborKey)!;
-              basin.outlets.add(neighborBasin);
-            }
-          });
-        });
-      });
-    });
-    performance.mark("basin-outlets-end");
-
-    performance.mark("basin-assignment-start");
-    // First pass: Assign IDs to all basins and create a mapping from basin data to ID
-    const basinDataToId = new Map<TempBasinData, string>();
-
-    basinsByLevel.forEach((basinsAtLevel, level) => {
-      basinsAtLevel.forEach((basinData, index) => {
-        const letters = generateLetterSequence(index);
-        const id = `${level}#${letters}`;
-
-        // Map the basin data to its ID
-        basinDataToId.set(basinData, id);
-
-        // Create the basin entry (outlets will be filled in second pass)
-        this.basins.set(id, {
-          tiles: basinData.tiles,
-          volume: 0,
-          level: 0,
-          height: level,
-          outlets: [], // Will be filled in next pass
-        });
-
-        // Map tiles to basin ID
-        basinData.tiles.forEach((k) => {
-          const parts = k.split(",");
-          const tx = parseInt(parts[0]!);
-          const ty = parseInt(parts[1]!);
-          this.basinIdOf[ty]![tx] = id;
-        });
-      });
-    });
-
-    // Second pass: Fill in outlet IDs now that all basin IDs are assigned
-    basinsByLevel.forEach((basinsAtLevel) => {
-      basinsAtLevel.forEach((basinData) => {
-        const basinId = basinDataToId.get(basinData);
-        const basin = this.basins.get(basinId!);
-
-        if (basin) {
-          basin.outlets = Array.from(basinData.outlets)
-            .map((outletBasin) => {
-              return basinDataToId.get(outletBasin);
-            })
-            .filter((id): id is string => id !== undefined); // Type guard filter
-        }
-      });
-    });
-    performance.mark("basin-assignment-end");
 
     performance.mark("basin-computation-end");
-
-    // Measure performance
-    performance.measure("Basin Data Clearing", "basin-clear-data-start", "basin-clear-data-end");
-    performance.measure("Basin Flood Fill", "basin-flood-fill-start", "basin-flood-fill-end");
-    performance.measure("Basin Outlet Detection", "basin-outlets-start", "basin-outlets-end");
-    performance.measure("Basin ID Assignment", "basin-assignment-start", "basin-assignment-end");
     performance.measure(
       "Total Basin Computation",
       "basin-computation-start",
       "basin-computation-end",
     );
 
-    // Log detailed performance info
-    const measures = performance.getEntriesByType("measure");
-    const recentMeasures = measures.slice(-5);
-    console.log(
-      `        └─ Basin Computation (${floodFillCount} flood fills, ${this.basins.size} basins):`,
-    );
-    recentMeasures.forEach((measure) => {
-      console.log(`           ${measure.name}: ${measure.duration.toFixed(2)}ms`);
-    });
+    const measure = performance.getEntriesByName("Total Basin Computation")[0];
+    if (measure) {
+      console.log(
+        `        └─ Basin Computation (${this.basins.size} basins): ${measure.duration.toFixed(2)}ms`,
+      );
+    }
   }
 
   getBasinAt(x: number, y: number): BasinData | null {
