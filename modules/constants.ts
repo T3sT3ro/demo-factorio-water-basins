@@ -80,15 +80,15 @@ export const UI_CONSTANTS = {
 
       DEBUG_OVERLAY: {
         PROCESSED: {
-          FILL: "rgba(100, 80, 255, 0.3)", // Purple for processed tiles
+          FILL: "rgba(100, 80, 255, 0.1)", // Purple for processed tiles
           STROKE: "rgba(100, 80, 255, 0.6)",
         },
         PENDING: {
-          FILL: "rgba(255, 105, 180, 0.3)", // Pastel pink for pending tiles
+          FILL: "rgba(255, 105, 180, 0.1)", // Pastel pink for pending tiles
           STROKE: "rgba(255, 105, 180, 0.6)", // Hot pink stroke
         },
         ACTIVE: {
-          FILL: "rgba(0, 255, 0, 0.53)", // Bright green for active tile
+          FILL: "rgba(0, 255, 0, 0.1)", // Bright green for active tile
           STROKE: "rgba(0, 200, 0, 0.9)",
           LINE_WIDTH_MULTIPLIER: 2, // Active tile has thicker border
         },

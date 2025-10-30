@@ -4,7 +4,7 @@ import { CONFIG } from "./config.ts";
 import { HeightGenerator } from "./noise/NoiseGenerator.ts";
 import { BasinManager } from "./basins/index.ts";
 import { PumpManager, ReservoirManager } from "./pumps.ts";
-import { HeightSerializer, BasinSerializer } from "./serialization/index.ts";
+import { BasinSerializer, HeightSerializer } from "./serialization/index.ts";
 import type { SaveData } from "./SaveFormat.ts";
 
 export class GameState {

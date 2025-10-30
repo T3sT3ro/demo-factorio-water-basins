@@ -1,7 +1,7 @@
 // Save/Load UI management
 
 import type { GameState } from "./GameState.ts";
-import { HeightSerializer, BasinSerializer } from "./serialization/index.ts";
+import { BasinSerializer, HeightSerializer } from "./serialization/index.ts";
 
 interface SaveMeta {
   key: string;

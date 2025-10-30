@@ -2,11 +2,7 @@
 
 import { computeBasinsGenerator } from "./BasinComputation.ts";
 import type { BasinManager } from "./BasinManager.ts";
-import type {
-  BasinComputationYield,
-  DebugState,
-  DebugStepGranularity,
-} from "./types.ts";
+import type { BasinComputationYield, DebugState, DebugStepGranularity } from "./types.ts";
 
 export class BasinDebugController {
   private basinManager: BasinManager;
@@ -25,6 +21,8 @@ export class BasinDebugController {
       processedTiles: new Set(),
       pendingTiles: new Set(),
       activeTile: null,
+      basinTree: [],
+      currentNodeId: null,
     };
   }
 
@@ -48,6 +46,8 @@ export class BasinDebugController {
         processedTiles: new Set(),
         pendingTiles: new Set(),
         activeTile: null,
+        basinTree: [],
+        currentNodeId: null,
       };
       this.generator = null;
       return { complete: true };
@@ -60,6 +60,8 @@ export class BasinDebugController {
       processedTiles: yielded.processedTiles,
       pendingTiles: yielded.pendingTiles,
       activeTile: yielded.activeTile ?? null,
+      basinTree: yielded.basinTree ?? [],
+      currentNodeId: yielded.currentNodeId ?? null,
     };
 
     return { complete: false };

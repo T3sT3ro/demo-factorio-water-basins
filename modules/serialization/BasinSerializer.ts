@@ -6,11 +6,7 @@
 import { CONFIG } from "../config.ts";
 import { BasinManager } from "../basins/BasinManager.ts";
 import { coordToKey } from "../TileUtils.ts";
-import type {
-  BasinTreeNode,
-  CompressedBasinIdMap,
-  CompressedBasins,
-} from "../SaveFormat.ts";
+import type { BasinTreeNode, CompressedBasinIdMap, CompressedBasins } from "../SaveFormat.ts";
 
 export class BasinSerializer {
   /**
