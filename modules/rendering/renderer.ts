@@ -158,26 +158,26 @@ export class Renderer {
     debugState: DebugState | null = null,
   ): void {
     // Render each layer only if it's dirty
-    this.renderTerrainLayer(gameState.getHeights());
+    this.renderTerrainLayer(gameState.heights);
 
     this.renderInfrastructureLayer(
-      gameState.getPumpsByReservoir(),
+      gameState.pumpManager.getPumpsByReservoir(),
       true, // show chunk boundaries
     );
 
-    this.renderWaterLayer(gameState.getBasins());
+    this.renderWaterLayer(gameState.basinManager.basins);
 
     this.renderHighlightLayer(
-      gameState.getBasinManager(),
-      gameState.getHighlightedBasin(),
+      gameState.basinManager,
+      gameState.basinManager.getHighlightedBasin(),
       debugState,
     );
 
     this.renderInteractiveLayer(
-      gameState.getPumps(),
+      gameState.pumpManager.getAllPumps(),
       selectedReservoirId,
-      gameState.getHeights(),
-      gameState.getBasins(),
+      gameState.heights,
+      gameState.basinManager.basins,
       uiSettings,
     );
 

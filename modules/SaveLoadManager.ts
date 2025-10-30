@@ -1,6 +1,7 @@
 // Save/Load UI management
 
 import type { GameState } from "./GameState.ts";
+import { HeightSerializer, BasinSerializer } from "./serialization/index.ts";
 
 interface SaveMeta {
   key: string;
@@ -176,8 +177,11 @@ export class SaveLoadManager {
     const totalSizeInfo = document.getElementById("totalSizeInfo");
 
     try {
-      const heightCompressed = this.gameState.compressHeights(heightEncoding);
-      const basinCompressed = this.gameState.compressBasins(basinEncoding);
+      const heightCompressed = HeightSerializer.compress(this.gameState.heights, heightEncoding);
+      const basinCompressed = BasinSerializer.compress(
+        this.gameState.basinManager,
+        basinEncoding,
+      );
 
       const heightSize = JSON.stringify(heightCompressed).length;
       const basinSize = JSON.stringify(basinCompressed).length;
