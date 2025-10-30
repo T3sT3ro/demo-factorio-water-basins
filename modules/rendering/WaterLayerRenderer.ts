@@ -1,6 +1,7 @@
 // Water layer renderer - renders water in basins
 
 import { CONFIG } from "../config.ts";
+import { keyToTuple } from "../TileUtils.ts";
 import { BaseLayerRenderer } from "./LayerRenderer.ts";
 import { getWaterColor } from "./ColorUtils.ts";
 import type { CameraController } from "./CameraController.ts";
@@ -24,15 +25,13 @@ export class WaterLayerRenderer extends BaseLayerRenderer {
         ctx.fillStyle = waterColor;
 
         for (const tileKey of basin.tiles) {
-          const [x, y] = tileKey.split(",").map(Number);
-          if (x !== undefined && y !== undefined) {
-            ctx.fillRect(
-              x * CONFIG.TILE_SIZE,
-              y * CONFIG.TILE_SIZE,
-              CONFIG.TILE_SIZE,
-              CONFIG.TILE_SIZE,
-            );
-          }
+          const [x, y] = keyToTuple(tileKey);
+          ctx.fillRect(
+            x * CONFIG.TILE_SIZE,
+            y * CONFIG.TILE_SIZE,
+            CONFIG.TILE_SIZE,
+            CONFIG.TILE_SIZE,
+          );
         }
       }
     }

@@ -1,6 +1,7 @@
 import { BaseLayerRenderer } from "./LayerRenderer.ts";
 import { CONFIG } from "../config.ts";
 import { UI_CONSTANTS } from "../constants.ts";
+import { keyToTuple } from "../TileUtils.ts";
 import type { BasinManager, DebugState } from "../basins/index.ts";
 import type { CameraController } from "./CameraController.ts";
 
@@ -51,9 +52,7 @@ export class HighlightLayerRenderer extends BaseLayerRenderer {
     ctx.strokeStyle = DEBUG_OVERLAY.PROCESSED.STROKE;
     ctx.lineWidth = lineWidth;
     this.debugState.processedTiles.forEach((tileKey) => {
-      const parts = tileKey.split(",");
-      const x = parseInt(parts[0]!);
-      const y = parseInt(parts[1]!);
+      const [x, y] = keyToTuple(tileKey);
       const params: [number, number, number, number] = [
         x * CONFIG.TILE_SIZE,
         y * CONFIG.TILE_SIZE,
@@ -69,9 +68,7 @@ export class HighlightLayerRenderer extends BaseLayerRenderer {
     ctx.strokeStyle = DEBUG_OVERLAY.PENDING.STROKE;
     ctx.lineWidth = lineWidth;
     this.debugState.pendingTiles.forEach((tileKey) => {
-      const parts = tileKey.split(",");
-      const x = parseInt(parts[0]!);
-      const y = parseInt(parts[1]!);
+      const [x, y] = keyToTuple(tileKey);
       const params: [number, number, number, number] = [
         x * CONFIG.TILE_SIZE,
         y * CONFIG.TILE_SIZE,
@@ -112,9 +109,7 @@ export class HighlightLayerRenderer extends BaseLayerRenderer {
     );
 
     basin.tiles.forEach((tileKey) => {
-      const parts = tileKey.split(",");
-      const x = parseInt(parts[0]!);
-      const y = parseInt(parts[1]!);
+      const [x, y] = keyToTuple(tileKey);
       const params: [number, number, number, number] = [
         x * CONFIG.TILE_SIZE,
         y * CONFIG.TILE_SIZE,
