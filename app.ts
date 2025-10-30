@@ -277,30 +277,30 @@ class TilemapWaterPumpingApp {
 
     this.brushTool.clearOverlay();
     this.renderer.clearBrushOverlay();
-    this.gameState.revalidateMap();
+    this.gameState.recomputeAll();
     this.updateCoordinator.onTerrainChange();
   }
 
   private handleFloodFill(x: number, y: number, fill: boolean): void {
-    this.gameState.floodFill(x, y, fill);
+    this.gameState.basinManager.floodFill(x, y, fill);
     this.updateCoordinator.onWaterChange();
   }
 
   private handleAddPump(x: number, y: number, mode: "inlet" | "outlet"): void {
-    const selectedId = this.gameState.getSelectedReservoir();
-    this.gameState.addPump(x, y, mode, selectedId !== null);
+    const selectedId = this.gameState.reservoirManager.getSelectedReservoir();
+    this.gameState.pumpManager.addPumpAt(x, y, mode, selectedId !== null);
     this.updateCoordinator.onPumpsChange();
     this.updateReservoirControls();
   }
 
   private handleLinkPump(x: number, y: number): void {
-    this.gameState.linkPumpToReservoir(x, y);
+    this.gameState.pumpManager.linkPumpToReservoir(x, y);
     this.updateReservoirControls();
     this.draw();
   }
 
   private handlePickDepth(x: number, y: number): void {
-    const heights = this.gameState.getHeights();
+    const heights = this.gameState.heights;
     if (heights[y] && heights[y]![x] !== undefined) {
       this.setSelectedDepth(heights[y]![x]!);
     }
@@ -381,7 +381,7 @@ class TilemapWaterPumpingApp {
     const clearPumpsBtn = document.getElementById("clearPumps");
     if (clearPumpsBtn) {
       clearPumpsBtn.onclick = () => {
-        this.gameState.clearPumps();
+        this.gameState.pumpManager.clearAll();
         this.updateCoordinator.onPumpsChange();
         this.updateReservoirControls();
       };
@@ -450,7 +450,7 @@ class TilemapWaterPumpingApp {
     if (reservoirInputEl) {
       reservoirInputEl.oninput = () => {
         const desiredId = this.getDesiredReservoirIdFromInput();
-        this.gameState.setSelectedReservoir(desiredId);
+        this.gameState.reservoirManager.setSelectedReservoir(desiredId);
         this.updateCoordinator.onPumpsChange();
       };
     }
@@ -497,7 +497,7 @@ class TilemapWaterPumpingApp {
       return null;
     }
 
-    const heights = this.gameState.getHeights();
+    const heights = this.gameState.heights;
     const basinManager = this.gameState.basinManager;
     const pumps = this.gameState.pumpManager.getAllPumps();
 
@@ -519,7 +519,7 @@ class TilemapWaterPumpingApp {
   private updateReservoirControls(): void {
     const input = document.getElementById("reservoirInput") as HTMLInputElement | null;
     if (input && input.value === "") {
-      const selectedId = this.gameState.getSelectedReservoir();
+      const selectedId = this.gameState.reservoirManager.getSelectedReservoir();
       input.value = selectedId !== null ? selectedId.toString() : "1";
     }
   }
@@ -540,7 +540,7 @@ class TilemapWaterPumpingApp {
 
   private clearReservoirSelection(): void {
     console.log("Clearing reservoir selection");
-    this.gameState.setSelectedReservoir(null);
+    this.gameState.reservoirManager.setSelectedReservoir(null);
     this.renderer.onPumpsChanged();
     this.draw();
   }
@@ -553,7 +553,7 @@ class TilemapWaterPumpingApp {
 
   private startBasinDebugMode(): void {
     console.log("Starting basin debug mode");
-    this.basinDebugGenerator.startDebugging(this.gameState.getHeights());
+    this.basinDebugGenerator.startDebugging(this.gameState.heights);
     this.updateCoordinator.onBasinsChange();
   }
 
@@ -607,7 +607,7 @@ class TilemapWaterPumpingApp {
       // deno-lint-ignore no-explicit-any
       this.gameState as any,
       this.uiSettings,
-      this.gameState.getSelectedReservoir(),
+      this.gameState.reservoirManager.getSelectedReservoir(),
       this.brushTool.getOverlay(),
       this.brushTool.getCenter(),
       this.brushTool.getSize(),

@@ -193,36 +193,19 @@ export class DebugDisplay {
       // Store basin ID for interaction
       li.dataset.basinId = entry.id;
 
-      // Add click handler to summary for selection
-      summary.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (this.gameState.selectedBasinId === entry.id) {
-          this.gameState.selectedBasinId = null;
-          this.callbacks.clearSelection();
-        } else {
-          this.gameState.selectedBasinId = entry.id;
-          this.updateBasinHighlights();
+      // Hover handlers for temporary highlighting
+      summary.addEventListener("mouseenter", () => {
+        if (this.onBasinHighlightChange) {
+          this.onBasinHighlightChange(entry.id);
         }
         this.callbacks.draw();
       });
 
-      // Hover handlers
-      summary.addEventListener("mouseenter", () => {
-        if (this.gameState.selectedBasinId !== entry.id) {
-          if (this.onBasinHighlightChange) {
-            this.onBasinHighlightChange(entry.id);
-          }
-          this.callbacks.draw();
-        }
-      });
-
       summary.addEventListener("mouseleave", () => {
-        if (this.gameState.selectedBasinId !== entry.id) {
-          if (this.onBasinHighlightChange) {
-            this.onBasinHighlightChange(null);
-          }
-          this.callbacks.draw();
+        if (this.onBasinHighlightChange) {
+          this.onBasinHighlightChange(null);
         }
+        this.callbacks.draw();
       });
 
       // Render children recursively
@@ -250,7 +233,6 @@ export class DebugDisplay {
     }
 
     debugBasinsDiv.appendChild(rootList);
-    this.updateBasinHighlights();
   }
 
   updateReservoirsDisplay(): void {
@@ -264,8 +246,8 @@ export class DebugDisplay {
 
     if (!debugReservoirsDiv || !reservoirTemplate || !pumpTemplate) return;
 
-    const reservoirs = this.gameState.getReservoirs();
-    const pumps = this.gameState.getPumps();
+    const reservoirs = this.gameState.reservoirManager.getAllReservoirs();
+    const pumps = this.gameState.pumpManager.getAllPumps();
 
     if (reservoirs.size === 0) {
       debugReservoirsDiv.innerHTML = "<em>No reservoirs</em>";
@@ -394,54 +376,23 @@ export class DebugDisplay {
       div.innerHTML =
         `<strong>${id}</strong> (${heightLabel}, ${basin.tiles.size} tiles, ${waterPercent}% full)`;
 
-      // Click for permanent selection
-      div.addEventListener("click", () => {
-        if (this.gameState.selectedBasinId === id) {
-          this.gameState.selectedBasinId = null;
-          this.callbacks.clearSelection();
-        } else {
-          this.gameState.selectedBasinId = id;
-          this.updateBasinHighlights();
+      // Hover for temporary highlighting
+      div.addEventListener("mouseenter", () => {
+        if (this.onBasinHighlightChange) {
+          this.onBasinHighlightChange(id);
         }
         this.callbacks.draw();
       });
 
-      // Hover for temporary highlighting
-      div.addEventListener("mouseenter", () => {
-        if (this.gameState.selectedBasinId !== id) {
-          if (this.onBasinHighlightChange) {
-            this.onBasinHighlightChange(id);
-          }
-          this.callbacks.draw();
-        }
-      });
-
       div.addEventListener("mouseleave", () => {
-        if (this.gameState.selectedBasinId !== id) {
-          if (this.onBasinHighlightChange) {
-            this.onBasinHighlightChange(null);
-          }
-          this.callbacks.draw();
+        if (this.onBasinHighlightChange) {
+          this.onBasinHighlightChange(null);
         }
+        this.callbacks.draw();
       });
 
       debugBasinsDiv.appendChild(div);
     }
-
-    this.updateBasinHighlights();
-  }
-
-  updateBasinHighlights(): void {
-    const basinItems = document.querySelectorAll(".basin-item");
-    basinItems.forEach((item) => {
-      const basinId = (item as HTMLElement).dataset.basinId;
-      const summary = item.querySelector(".basin-summary") as HTMLElement;
-      if (summary && basinId === this.gameState.selectedBasinId) {
-        summary.style.background = "var(--blue-3)";
-      } else if (summary) {
-        summary.style.background = "";
-      }
-    });
   }
 
   setBasinHighlightChangeCallback(callback: (basinId: string | null) => void): void {
