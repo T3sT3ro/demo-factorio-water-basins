@@ -40,7 +40,9 @@ export class BasinManager {
     const measure = performance.getEntriesByName("Total Basin Computation")[0];
     if (measure) {
       console.log(
-        `        └─ Basin Computation (${this.basins.size} basins): ${measure.duration.toFixed(2)}ms`,
+        `        └─ Basin Computation (${this.basins.size} basins): ${
+          measure.duration.toFixed(2)
+        }ms`,
       );
     }
   }

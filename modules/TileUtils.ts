@@ -93,7 +93,7 @@ export function keyToTuple(key: string): [number, number] {
  * Check if a diagonal move is blocked by adjacent land tiles.
  * For a diagonal move from (x,y) to (x+dx, y+dy), both orthogonal
  * crossing tiles must not be land (height 0).
- * 
+ *
  * @param x Current x coordinate
  * @param y Current y coordinate
  * @param dx Direction x offset (-1, 0, or 1)
@@ -132,7 +132,7 @@ export function isDiagonalBlocked(
 
 /**
  * Get valid neighbors for a tile, respecting bounds and diagonal blocking
- * 
+ *
  * @param x Current x coordinate
  * @param y Current y coordinate
  * @param heights Height map (for diagonal blocking check)
@@ -198,7 +198,5 @@ export function calculateCentroid(tiles: Set<string>): Coord {
     count++;
   }
 
-  return count > 0
-    ? { x: Math.round(sumX / count), y: Math.round(sumY / count) }
-    : { x: 0, y: 0 };
+  return count > 0 ? { x: Math.round(sumX / count), y: Math.round(sumY / count) } : { x: 0, y: 0 };
 }

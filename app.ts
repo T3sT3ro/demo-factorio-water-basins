@@ -196,6 +196,53 @@ class TilemapWaterPumpingApp {
     globalThis.history.replaceState({}, "", url);
   }
 
+  /**
+   * Setup a button to repeat its action when held down.
+   * Initial delay before repeat starts, then faster repetition.
+   */
+  private setupHoldableButton(
+    button: HTMLElement | null,
+    action: () => void,
+  ): void {
+    if (!button) return;
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let initialTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const startRepeating = () => {
+      // Execute once immediately
+      action();
+
+      // Wait for initial delay before starting repetition
+      initialTimeoutId = setTimeout(() => {
+        intervalId = setInterval(() => {
+          action();
+        }, 20); // Repeat every 100ms while held
+      }, 300); // Initial delay of 300ms
+    };
+
+    const stopRepeating = () => {
+      if (initialTimeoutId !== null) {
+        clearTimeout(initialTimeoutId);
+        initialTimeoutId = null;
+      }
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    // Start on mousedown
+    button.addEventListener("mousedown", startRepeating);
+
+    // Stop on mouseup or mouseleave
+    button.addEventListener("mouseup", stopRepeating);
+    button.addEventListener("mouseleave", stopRepeating);
+
+    // Also stop if focus is lost
+    button.addEventListener("blur", stopRepeating);
+  }
+
   private onNoiseSettingsChanged(): void {
     performance.mark("noise-settings-change-start");
 
@@ -280,12 +327,12 @@ class TilemapWaterPumpingApp {
 
     this.brushTool.clearOverlay();
     this.renderer.clearBrushOverlay();
-    
+
     // Exit debug mode if active (terrain was manually edited)
     if (this.basinDebugGenerator.isInDebugMode()) {
       this.exitBasinDebugMode();
     }
-    
+
     this.gameState.recomputeAll();
     this.updateCoordinator.onTerrainChange();
   }
@@ -423,13 +470,9 @@ class TilemapWaterPumpingApp {
       };
     }
 
-    if (basinDebugStepOne) {
-      basinDebugStepOne.onclick = () => this.stepBasinDebug("one");
-    }
-
-    if (basinDebugStepStage) {
-      basinDebugStepStage.onclick = () => this.stepBasinDebug("stage");
-    }
+    // Add hold-to-repeat functionality for step buttons
+    this.setupHoldableButton(basinDebugStepOne, () => this.stepBasinDebug("one"));
+    this.setupHoldableButton(basinDebugStepStage, () => this.stepBasinDebug("stage"));
 
     if (basinDebugFinish) {
       basinDebugFinish.onclick = () => this.stepBasinDebug("finish");
@@ -559,7 +602,17 @@ class TilemapWaterPumpingApp {
   }
 
   private updateDebugDisplays(): void {
-    this.debugDisplay.updateBasinsDisplay();
+    // Show debug tree view if in debug mode
+    const debugState = this.basinDebugGenerator.getDebugState();
+    if (debugState && debugState.basinTree.length > 0) {
+      this.debugDisplay.updateDebugBasinTreeDisplay(
+        debugState.basinTree,
+        debugState.currentNodeId,
+      );
+    } else {
+      this.debugDisplay.updateBasinsDisplay();
+    }
+
     this.debugDisplay.updateReservoirsDisplay();
     this.debugDisplay.updateTickCounter(this.gameState.tickCounter);
   }
@@ -583,11 +636,8 @@ class TilemapWaterPumpingApp {
       basinDebugControls.style.display = "none";
     }
 
-    // Force generator to complete by stepping with "finish" until done
-    let result = this.basinDebugGenerator.step("finish");
-    while (!result.complete) {
-      result = this.basinDebugGenerator.step("finish");
-    }
+    // Force generator to complete (step with "finish" runs to completion)
+    this.basinDebugGenerator.step("finish");
 
     // Clear debug overlay
     this.updateCoordinator.onBasinsChange();

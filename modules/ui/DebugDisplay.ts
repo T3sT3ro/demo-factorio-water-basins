@@ -235,6 +235,94 @@ export class DebugDisplay {
     debugBasinsDiv.appendChild(rootList);
   }
 
+  updateDebugBasinTreeDisplay(
+    basinTree: import("../basins/types.ts").BasinTreeDebugInfo[],
+    currentNodeId: string | null,
+  ): void {
+    const debugBasinsDiv = document.getElementById("basinsText");
+    if (!debugBasinsDiv) return;
+
+    if (basinTree.length === 0) {
+      debugBasinsDiv.innerHTML = "<em>Building basin tree...</em>";
+      return;
+    }
+
+    // Build tree structure - only show actual basin nodes (children of ROOT)
+    // ROOT node (depth 0) is just a virtual container, not a real basin
+    const roots = basinTree.filter((node) => node.parentId === "0#ROOT");
+    const template = document.getElementById("template-basin-item") as HTMLTemplateElement | null;
+
+    if (!template) {
+      debugBasinsDiv.innerHTML = "<em>Basin template not found</em>";
+      return;
+    }
+
+    const renderNode = (
+      node: import("../basins/types.ts").BasinTreeDebugInfo,
+    ): HTMLElement | null => {
+      const clone = template.content.cloneNode(true) as DocumentFragment;
+      const li = clone.querySelector(".basin-item") as HTMLLIElement;
+      const summary = clone.querySelector(".basin-summary") as HTMLElement;
+      const idEl = clone.querySelector(".basin-id") as HTMLElement;
+      const infoEl = clone.querySelector(".basin-info") as HTMLElement;
+      const childrenList = clone.querySelector(".basin-children") as HTMLUListElement;
+      const details = clone.querySelector("details") as HTMLDetailsElement;
+
+      if (!li || !summary || !idEl || !infoEl || !childrenList || !details) return null;
+
+      // Mark as active node if it's the current one
+      const isActive = node.nodeId === currentNodeId;
+      if (isActive) {
+        li.classList.add("active-node");
+        details.open = true; // Auto-expand active node
+      }
+
+      // Set node data (skip root node display)
+      if (node.depth === 0) {
+        idEl.textContent = "ROOT";
+        infoEl.textContent = " (virtual root)";
+      } else {
+        idEl.textContent = node.nodeId;
+        infoEl.textContent = ` (depth: ${node.depth}, tiles: ${node.tileCount})`;
+      }
+
+      // Store node ID for interaction
+      li.dataset.basinId = node.nodeId;
+
+      // Find and render children
+      const children = basinTree.filter((n) => n.parentId === node.nodeId);
+
+      if (children.length > 0) {
+        children.forEach((child) => {
+          const childElement = renderNode(child);
+          if (childElement) {
+            childrenList.appendChild(childElement);
+          }
+        });
+      } else {
+        // Mark as leaf node (no children) for CSS styling
+        details.classList.add("leaf-node");
+        childrenList.style.display = "none";
+      }
+
+      return li;
+    };
+
+    // Render tree
+    debugBasinsDiv.innerHTML = "";
+    const rootList = document.createElement("ul");
+    rootList.className = "basin-tree";
+
+    for (const root of roots) {
+      const rootElement = renderNode(root);
+      if (rootElement) {
+        rootList.appendChild(rootElement);
+      }
+    }
+
+    debugBasinsDiv.appendChild(rootList);
+  }
+
   updateReservoirsDisplay(): void {
     const debugReservoirsDiv = document.getElementById("reservoirsText");
     const reservoirTemplate = document.getElementById(
