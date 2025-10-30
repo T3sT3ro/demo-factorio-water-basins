@@ -4,7 +4,8 @@
  */
 
 import { CONFIG } from "../config.ts";
-import type { BasinManager } from "../basins/index.ts";
+import { BasinManager } from "../basins/BasinManager.ts";
+import { coordToKey } from "../TileUtils.ts";
 import type {
   BasinTreeNode,
   CompressedBasinIdMap,
@@ -213,7 +214,7 @@ export class BasinSerializer {
   private static decompressBasinIdMap(compressed: CompressedBasinIdMap): string[][] {
     switch (compressed.format) {
       case "string_rows":
-        return compressed.data.split("\n").map((row) => row.split("|"));
+        return compressed.data.split("\n").map((row: string) => row.split("|"));
       case "rle_basin_ids":
         return this.runLengthDecodeBasinIds(compressed);
       default:
@@ -275,7 +276,7 @@ export class BasinSerializer {
       for (let y = 0; y < CONFIG.WORLD_H; y++) {
         for (let x = 0; x < CONFIG.WORLD_W; x++) {
           if (basinIdMap[y]![x] === basinId) {
-            tiles.add(`${x},${y}`);
+            tiles.add(coordToKey(x, y));
           }
         }
       }
@@ -317,7 +318,7 @@ export class BasinSerializer {
       for (let y = 0; y < CONFIG.WORLD_H; y++) {
         for (let x = 0; x < CONFIG.WORLD_W; x++) {
           if (basinIdMap[y]![x] === basinId) {
-            tiles.add(`${x},${y}`);
+            tiles.add(coordToKey(x, y));
           }
         }
       }

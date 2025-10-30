@@ -1,6 +1,7 @@
 // Simple deterministic label positioning system for basin labels only
 
 import { CONFIG } from "./config.ts";
+import { calculateCentroid, euclideanDistance, keyToCoord } from "./TileUtils.ts";
 import type { Pump } from "./pumps.ts";
 import type { BasinData } from "./basins/index.ts";
 
@@ -67,26 +68,15 @@ export class BasinLabelManager {
         representativeTile = tiles[0]!;
       } else {
         // Calculate centroid to find the tile closest to center
-        let sumX = 0,
-          sumY = 0;
-        tiles.forEach((tileKey) => {
-          const parts = tileKey.split(",");
-          const x = parseInt(parts[0]!);
-          const y = parseInt(parts[1]!);
-          sumX += x;
-          sumY += y;
-        });
-        const centerX = sumX / tiles.length;
-        const centerY = sumY / tiles.length;
+        const tilesSet = new Set(tiles);
+        const center = calculateCentroid(tilesSet);
 
         // Find the actual tile closest to the centroid
         let minDistance = Infinity;
         representativeTile = tiles[0]!;
         tiles.forEach((tileKey) => {
-          const parts = tileKey.split(",");
-          const x = parseInt(parts[0]!);
-          const y = parseInt(parts[1]!);
-          const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+          const coord = keyToCoord(tileKey);
+          const distance = euclideanDistance(coord, center);
           if (distance < minDistance) {
             minDistance = distance;
             representativeTile = tileKey;
@@ -94,9 +84,7 @@ export class BasinLabelManager {
         });
       }
 
-      const parts = representativeTile.split(",");
-      const tileX = parseInt(parts[0]!);
-      const tileY = parseInt(parts[1]!);
+      const { x: tileX, y: tileY } = keyToCoord(representativeTile);
       const anchorX = tileX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
       const anchorY = tileY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
 

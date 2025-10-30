@@ -1,6 +1,13 @@
 // Core basin computation algorithm - flood fill, outlet detection, and ID assignment
 
 import { CONFIG } from "../config.ts";
+import {
+  coordToKey,
+  DIRECTIONS_8,
+  isDiagonalBlocked,
+  isInBounds,
+  keyToCoord,
+} from "../TileUtils.ts";
 import type { BasinManager } from "./BasinManager.ts";
 import type {
   BasinComputationYield,
@@ -36,37 +43,20 @@ function floodFillBasin(
 
   while (stack.length > 0) {
     const [x, y] = stack.pop()!;
-    if (x < 0 || y < 0 || x >= CONFIG.WORLD_W || y >= CONFIG.WORLD_H) continue;
+    if (!isInBounds(x, y)) continue;
     if (visited[y]![x]) continue;
     if (heights[y]![x] !== depth) continue;
 
     visited[y]![x] = true;
-    tiles.add(`${x},${y}`);
+    tiles.add(coordToKey(x, y));
 
-    const directions: Array<[number, number]> = [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-      [-1, -1],
-      [1, 1],
-      [-1, 1],
-      [1, -1],
-    ];
-
-    for (const [dx, dy] of directions) {
+    for (const [dx, dy] of DIRECTIONS_8) {
       const nx = x + dx, ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= CONFIG.WORLD_W || ny >= CONFIG.WORLD_H) continue;
+      if (!isInBounds(nx, ny)) continue;
       if (heights[ny]![nx] !== depth || visited[ny]![nx]) continue;
 
       // Check diagonal blocking
-      if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {
-        const cross1x = x, cross1y = ny;
-        const cross2x = nx, cross2y = y;
-        const cross1IsLand = heights[cross1y]![cross1x] === 0;
-        const cross2IsLand = heights[cross2y]![cross2x] === 0;
-        if (cross1IsLand && cross2IsLand) continue;
-      }
+      if (isDiagonalBlocked(x, y, dx, dy, heights)) continue;
 
       stack.push([nx, ny]);
     }
@@ -85,14 +75,16 @@ function* floodFillBasinGenerator(
   tileToBasin: Map<string, TempBasinData>,
   processedTiles: Set<string>,
   pendingTiles: Set<string>,
+  granularity: DebugStepGranularity,
 ): Generator<BasinComputationYield, void, DebugStepGranularity> {
   const tiles = new Set<string>();
   const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
-  pendingTiles.add(`${startX},${startY}`);
+  const startKey = coordToKey(startX, startY);
+  pendingTiles.add(startKey);
 
   while (queue.length > 0) {
     const { x, y } = queue.shift()!;
-    const key = `${x},${y}`;
+    const key = coordToKey(x, y);
 
     pendingTiles.delete(key);
 
@@ -103,39 +95,26 @@ function* floodFillBasinGenerator(
     tiles.add(key);
     processedTiles.add(key);
 
-    yield {
-      stage: "flood-fill",
-      depth,
-      activeTile: { x, y },
-      processedTiles,
-      pendingTiles,
-    };
+    // Only yield for "one" granularity (per-tile stepping)
+    if (granularity === "one") {
+      yield {
+        stage: "flood-fill",
+        depth,
+        activeTile: { x, y },
+        processedTiles,
+        pendingTiles,
+      };
+    }
 
-    const directions: Array<[number, number]> = [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-      [-1, -1],
-      [1, 1],
-      [-1, 1],
-      [1, -1],
-    ];
-
-    for (const [dx, dy] of directions) {
+    for (const [dx, dy] of DIRECTIONS_8) {
       const nx = x + dx, ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= CONFIG.WORLD_W || ny >= CONFIG.WORLD_H) continue;
+      if (!isInBounds(nx, ny)) continue;
       if (heights[ny]![nx] !== depth || visited[ny]![nx]) continue;
 
-      if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {
-        const cross1x = x, cross1y = ny;
-        const cross2x = nx, cross2y = y;
-        const cross1IsLand = heights[cross1y]![cross1x] === 0;
-        const cross2IsLand = heights[cross2y]![cross2x] === 0;
-        if (cross1IsLand && cross2IsLand) continue;
-      }
+      // Check diagonal blocking
+      if (isDiagonalBlocked(x, y, dx, dy, heights)) continue;
 
-      const neighborKey = `${nx},${ny}`;
+      const neighborKey = coordToKey(nx, ny);
       if (!pendingTiles.has(neighborKey)) {
         queue.push({ x: nx, y: ny });
         pendingTiles.add(neighborKey);
@@ -196,11 +175,13 @@ function* floodFillDepthLevelGenerator(
   pendingTiles: Set<string>,
   stepSize: DebugStepGranularity,
 ): Generator<BasinComputationYield, void, DebugStepGranularity> {
+  // For "stage" or "finish", process entire depth level without yielding
   if (stepSize === "stage" || stepSize === "finish") {
     floodFillDepthLevel(depth, heights, visited, basinsByLevel, tileToBasin);
     return;
   }
 
+  // For "one" granularity, step through each tile
   for (let y = 0; y < CONFIG.WORLD_H; y++) {
     for (let x = 0; x < CONFIG.WORLD_W; x++) {
       if (visited[y]![x] || heights[y]![x] !== depth) continue;
@@ -215,6 +196,7 @@ function* floodFillDepthLevelGenerator(
         tileToBasin,
         processedTiles,
         pendingTiles,
+        stepSize,
       );
     }
   }
@@ -228,27 +210,14 @@ function detectOutlets(
   basinsByLevel.forEach((basinsAtLevel, currentDepth) => {
     basinsAtLevel.forEach((basin) => {
       basin.tiles.forEach((tileKey) => {
-        const parts = tileKey.split(",");
-        const tx = parseInt(parts[0]!);
-        const ty = parseInt(parts[1]!);
+        const { x: tx, y: ty } = keyToCoord(tileKey);
 
-        const directions: Array<[number, number]> = [
-          [-1, 0],
-          [1, 0],
-          [0, -1],
-          [0, 1],
-          [-1, -1],
-          [1, 1],
-          [-1, 1],
-          [1, -1],
-        ];
-
-        directions.forEach(([dx, dy]) => {
+        for (const [dx, dy] of DIRECTIONS_8) {
           const nx = tx + dx, ny = ty + dy;
-          if (nx < 0 || ny < 0 || nx >= CONFIG.WORLD_W || ny >= CONFIG.WORLD_H) return;
+          if (!isInBounds(nx, ny)) continue;
 
           const neighborHeight = heights[ny]![nx]!;
-          const neighborKey = `${nx},${ny}`;
+          const neighborKey = coordToKey(nx, ny);
 
           if (
             neighborHeight > 0 && neighborHeight < currentDepth && tileToBasin.has(neighborKey)
@@ -256,7 +225,7 @@ function detectOutlets(
             const neighborBasin = tileToBasin.get(neighborKey)!;
             basin.outlets.add(neighborBasin);
           }
-        });
+        }
       });
     });
   });
@@ -284,9 +253,7 @@ function assignBasinIds(
       });
 
       basinData.tiles.forEach((k) => {
-        const parts = k.split(",");
-        const tx = parseInt(parts[0]!);
-        const ty = parseInt(parts[1]!);
+        const { x: tx, y: ty } = keyToCoord(k);
         basinManager.basinIdOf[ty]![tx] = id;
       });
     });
@@ -330,6 +297,7 @@ export function* computeBasinsGenerator(
 
   // STAGE 1: FLOOD FILL
   for (let depth = 1; depth <= CONFIG.MAX_DEPTH; depth++) {
+    // Yield stage transition (for "one" and "stage" granularity)
     const stepSize = yield {
       stage: "flood-fill",
       depth,
@@ -337,6 +305,7 @@ export function* computeBasinsGenerator(
       pendingTiles,
     };
 
+    // Fast path: complete all remaining depths without yielding
     if (stepSize === "finish") {
       for (let d = depth; d <= CONFIG.MAX_DEPTH; d++) {
         floodFillDepthLevel(d, heights, visited, basinsByLevel, tileToBasin);
@@ -344,6 +313,7 @@ export function* computeBasinsGenerator(
       break;
     }
 
+    // Process this depth level with appropriate granularity
     yield* floodFillDepthLevelGenerator(
       depth,
       heights,
@@ -359,7 +329,7 @@ export function* computeBasinsGenerator(
   processedTiles.clear();
   pendingTiles.clear();
 
-  // STAGE 2: OUTLET DETECTION
+  // STAGE 2: OUTLET DETECTION (yield for "one" and "stage" granularity)
   yield {
     stage: "outlets",
     processedTiles,
@@ -368,7 +338,7 @@ export function* computeBasinsGenerator(
 
   detectOutlets(basinsByLevel, heights, tileToBasin);
 
-  // STAGE 3: ID ASSIGNMENT
+  // STAGE 3: ID ASSIGNMENT (yield for "one" and "stage" granularity)
   yield {
     stage: "assignment",
     processedTiles,
@@ -377,7 +347,7 @@ export function* computeBasinsGenerator(
 
   assignBasinIds(basinsByLevel, basinManager);
 
-  // STAGE 4: COMPLETE
+  // STAGE 4: COMPLETE (always yield to signal completion)
   yield {
     stage: "complete",
     processedTiles,

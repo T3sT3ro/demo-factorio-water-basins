@@ -1,5 +1,6 @@
 import { CONFIG } from "../config.ts";
 import { UI_CONSTANTS } from "../constants.ts";
+import { keyToTuple } from "../TileUtils.ts";
 import { getHeightColor } from "./ColorUtils.ts";
 import type { CameraController } from "./CameraController.ts";
 
@@ -79,9 +80,7 @@ export class BrushOverlayRenderer {
    * Draw a single tile in world space (no transform needed)
    */
   private drawTile(tileKey: string, selectedDepth: number): void {
-    const parts = tileKey.split(",");
-    const x = parseInt(parts[0]!);
-    const y = parseInt(parts[1]!);
+    const [x, y] = keyToTuple(tileKey);
 
     const tileX = x * CONFIG.TILE_SIZE;
     const tileY = y * CONFIG.TILE_SIZE;
@@ -99,9 +98,7 @@ export class BrushOverlayRenderer {
    * Clear a single tile in world space
    */
   private clearTile(tileKey: string): void {
-    const parts = tileKey.split(",");
-    const x = parseInt(parts[0]!);
-    const y = parseInt(parts[1]!);
+    const [x, y] = keyToTuple(tileKey);
 
     const tileX = x * CONFIG.TILE_SIZE;
     const tileY = y * CONFIG.TILE_SIZE;

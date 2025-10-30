@@ -13,6 +13,7 @@ import { InputController } from "./modules/InputController.ts";
 import type { InputCallbacks } from "./modules/InputController.ts";
 import { BasinDebugController } from "./modules/basins/index.ts";
 import type { DebugStepGranularity } from "./modules/basins/index.ts";
+import { keyToTuple } from "./modules/TileUtils.ts";
 
 interface TileInfo {
   x: number;
@@ -232,6 +233,10 @@ class TilemapWaterPumpingApp {
   }
 
   private onGameStateChanged(): void {
+    // Exit debug mode if active (map was loaded)
+    if (this.basinDebugGenerator.isInDebugMode()) {
+      this.exitBasinDebugMode();
+    }
     this.updateCoordinator.onFullUpdate();
     this.updateReservoirControls();
     this.noiseControlUI.updateUI();
@@ -269,14 +274,18 @@ class TilemapWaterPumpingApp {
     if (overlay.size === 0) return;
 
     for (const [key, depth] of overlay) {
-      const [x, y] = key.split(",").map(Number);
-      if (x !== undefined && y !== undefined) {
-        this.gameState.setDepthAtBatch(x, y, depth);
-      }
+      const [x, y] = keyToTuple(key);
+      this.gameState.setDepthAtBatch(x, y, depth);
     }
 
     this.brushTool.clearOverlay();
     this.renderer.clearBrushOverlay();
+    
+    // Exit debug mode if active (terrain was manually edited)
+    if (this.basinDebugGenerator.isInDebugMode()) {
+      this.exitBasinDebugMode();
+    }
+    
     this.gameState.recomputeAll();
     this.updateCoordinator.onTerrainChange();
   }
@@ -373,6 +382,10 @@ class TilemapWaterPumpingApp {
     const randomizeBtn = document.getElementById("randomizeBtn");
     if (randomizeBtn) {
       randomizeBtn.onclick = () => {
+        // Exit debug mode if active
+        if (this.basinDebugGenerator.isInDebugMode()) {
+          this.exitBasinDebugMode();
+        }
         this.gameState.randomizeHeights();
         this.updateCoordinator.onTerrainChange();
       };
