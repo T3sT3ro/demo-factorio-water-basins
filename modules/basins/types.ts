@@ -40,7 +40,7 @@ export interface DebugState {
   currentNodeId: string | null; // Currently active basin node
 }
 
-export type DebugStepGranularity = "one" | "stage" | "finish";
+export type DebugStepGranularity = "tile" | "level" | "island" | "finish";
 
 export type BasinComputationYield = {
   stage: "flood-fill" | "outlets" | "assignment" | "complete";

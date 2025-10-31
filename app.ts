@@ -458,8 +458,9 @@ class TilemapWaterPumpingApp {
     // Basin debug mode controls
     const startBasinDebugBtn = document.getElementById("startBasinDebugBtn");
     const basinDebugControls = document.getElementById("basinDebugControls");
-    const basinDebugStepOne = document.getElementById("basinDebugStepOne");
-    const basinDebugStepStage = document.getElementById("basinDebugStepStage");
+    const basinDebugStepTile = document.getElementById("basinDebugStepTile");
+    const basinDebugStepLevel = document.getElementById("basinDebugStepLevel");
+    const basinDebugStepIsland = document.getElementById("basinDebugStepIsland");
     const basinDebugFinish = document.getElementById("basinDebugFinish");
 
     if (startBasinDebugBtn && basinDebugControls) {
@@ -471,8 +472,9 @@ class TilemapWaterPumpingApp {
     }
 
     // Add hold-to-repeat functionality for step buttons
-    this.setupHoldableButton(basinDebugStepOne, () => this.stepBasinDebug("one"));
-    this.setupHoldableButton(basinDebugStepStage, () => this.stepBasinDebug("stage"));
+    this.setupHoldableButton(basinDebugStepTile, () => this.stepBasinDebug("tile"));
+    this.setupHoldableButton(basinDebugStepLevel, () => this.stepBasinDebug("level"));
+    this.setupHoldableButton(basinDebugStepIsland, () => this.stepBasinDebug("island"));
 
     if (basinDebugFinish) {
       basinDebugFinish.onclick = () => this.stepBasinDebug("finish");

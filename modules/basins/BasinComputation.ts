@@ -244,6 +244,14 @@ function determineBasinNode(
   }
 }
 
+// Granularity levels (like logging levels)
+const GRANULARITY_LEVELS = {
+  finish: 0,  // No yielding
+  island: 1,  // Yield on island change
+  level: 2,   // Yield on depth/level change
+  tile: 3,    // Yield on every tile
+} as const;
+
 /**
  * Process a single basin island starting from a seed tile.
  * Uses bucketed depth queue to process deepest tiles first.
@@ -275,6 +283,8 @@ function* processSingleBasinIsland(
   pendingParents.set(seedKey, { parentTileKey: null, parentDepth: 0 });
 
   let currentDepth = seedDepth;
+  let lastBasinNode: BasinNode | null = null;
+  let currentBasinTileCount = 0;
 
   while (!bucketQueue.isEmpty()) {
     const entry = bucketQueue.shift();
@@ -287,10 +297,11 @@ function* processSingleBasinIsland(
     const parentInfo = pendingParents.get(key);
     const parentTileKey = parentInfo?.parentTileKey ?? null;
 
-    // Detect depth change for stage yielding
+    // Detect depth change - yield if granularity includes level
     if (depth !== currentDepth) {
       currentDepth = depth;
-      if (granularity === "stage") {
+      
+      if (GRANULARITY_LEVELS[granularity] >= GRANULARITY_LEVELS.level) {
         const currentNode = parentTileKey ? tileToNode.get(parentTileKey) : null;
         granularity = yield {
           stage: "flood-fill",
@@ -321,14 +332,23 @@ function* processSingleBasinIsland(
       childrenMap,
     );
 
+    // Check if we're switching to a different basin (step-up phase)
+    if (lastBasinNode && lastBasinNode.id !== currentNode.id) {
+      // Propagate accumulated count for the previous basin
+      propagateTileCountUp(lastBasinNode, currentBasinTileCount);
+      currentBasinTileCount = 0;
+    }
+
     // Assign tile to basin
     tileToNode.set(key, currentNode);
     tileToBasin.set(key, currentNode.id);
-    propagateTileCountUp(currentNode, 1);
+    currentNode.tileCount++; // Increment this basin's direct count
+    currentBasinTileCount++;
+    lastBasinNode = currentNode;
     processedTiles.add(key);
 
-    // Yield for "one" granularity (per-tile stepping)
-    if (granularity === "one") {
+    // Yield if granularity includes tile level
+    if (GRANULARITY_LEVELS[granularity] >= GRANULARITY_LEVELS.tile) {
       granularity = yield {
         stage: "flood-fill",
         depth,
@@ -338,38 +358,6 @@ function* processSingleBasinIsland(
         basinTree: extractBasinTreeDebugInfo(nodesByDepth, childrenMap),
         currentNodeId: currentNode.id,
       };
-
-      // Fast finish requested
-      if (granularity === "finish") {
-        // Process all remaining tiles in this island without yielding
-        while (!bucketQueue.isEmpty()) {
-          const e = bucketQueue.shift();
-          if (!e) break;
-
-          const k = coordToKey(e.x, e.y);
-          const pInfo = pendingParents.get(k);
-          const pTileKey = pInfo?.parentTileKey ?? null;
-
-          pendingParents.delete(k);
-
-          if (visited[e.y]![e.x]) continue;
-
-          visited[e.y]![e.x] = true;
-          const node = determineBasinNode(
-            e.depth,
-            pTileKey,
-            tileToNode,
-            root,
-            nodesByDepth,
-            childrenMap,
-          );
-          tileToNode.set(k, node);
-          tileToBasin.set(k, node.id);
-          propagateTileCountUp(node, 1);
-          processedTiles.add(k);
-        }
-        return granularity;
-      }
     }
 
     // Add unvisited neighbors with depth > 0 to bucketed queue
@@ -400,6 +388,11 @@ function* processSingleBasinIsland(
     }
   }
 
+  // Propagate final basin count after loop completes
+  if (lastBasinNode && currentBasinTileCount > 0) {
+    propagateTileCountUp(lastBasinNode, currentBasinTileCount);
+  }
+
   return granularity;
 }
 
@@ -426,7 +419,7 @@ function* treeBasedBasinComputationGenerator(
 
   // Primary queue: unordered change set
   const primaryQueue = Array.from(changeSet);
-  let granularity: DebugStepGranularity = "one";
+  let granularity: DebugStepGranularity = "tile";
 
   while (primaryQueue.length > 0) {
     const seedKey = primaryQueue.shift()!;
@@ -438,7 +431,19 @@ function* treeBasedBasinComputationGenerator(
     const depth = heights[y]![x]!;
     if (depth === 0) continue;
 
-    // Process this basin island
+    // Yield before processing each island if granularity includes island level
+    if (GRANULARITY_LEVELS[granularity] >= GRANULARITY_LEVELS.island) {
+      granularity = yield {
+        stage: "flood-fill",
+        depth,
+        processedTiles,
+        pendingTiles,
+        basinTree: extractBasinTreeDebugInfo(nodesByDepth, childrenMap),
+        currentNodeId: root.id,
+      };
+    }
+
+    // Process this basin island (will handle granularity internally)
     granularity = yield* processSingleBasinIsland(
       x,
       y,
@@ -453,75 +458,6 @@ function* treeBasedBasinComputationGenerator(
       pendingTiles,
       granularity,
     );
-
-    // If finish was requested, process remaining primary queue without yielding
-    if (granularity === "finish") {
-      for (const key of primaryQueue) {
-        const coord = keyToCoord(key);
-        const sx = coord.x, sy = coord.y;
-
-        if (!isInBounds(sx, sy) || visited[sy]![sx]) continue;
-
-        const d = heights[sy]![sx]!;
-        if (d === 0) continue;
-
-        // Process island in fast mode
-        const bucketQueue = new BucketedDepthQueue();
-        const fastPendingParents = new Map<string, { parentTileKey: string | null; parentDepth: number }>();
-        const seedKey = coordToKey(sx, sy);
-
-        bucketQueue.add(sx, sy, d, null);
-        fastPendingParents.set(seedKey, { parentTileKey: null, parentDepth: 0 });
-
-        while (!bucketQueue.isEmpty()) {
-          const e = bucketQueue.shift();
-          if (!e) break;
-
-          const k = coordToKey(e.x, e.y);
-          const pInfo = fastPendingParents.get(k);
-          const pTileKey = pInfo?.parentTileKey ?? null;
-
-          fastPendingParents.delete(k);
-
-          if (visited[e.y]![e.x]) continue;
-
-          visited[e.y]![e.x] = true;
-          const node = determineBasinNode(
-            e.depth,
-            pTileKey,
-            tileToNode,
-            root,
-            nodesByDepth,
-            childrenMap,
-          );
-          tileToNode.set(k, node);
-          tileToBasin.set(k, node.id);
-          propagateTileCountUp(node, 1);
-
-          // Add neighbors
-          for (const [dx, dy] of DIRECTIONS_8) {
-            const nx = e.x + dx, ny = e.y + dy;
-            if (!isInBounds(nx, ny) || visited[ny]![nx]) continue;
-
-            const nd = heights[ny]![nx]!;
-            if (nd === 0) continue;
-            if (isDiagonalBlocked(e.x, e.y, dx, dy, heights)) continue;
-
-            const nk = coordToKey(nx, ny);
-            const existingParent = fastPendingParents.get(nk);
-
-            // Only add or update if this parent is deeper
-            if (!existingParent || e.depth > existingParent.parentDepth) {
-              if (!existingParent) {
-                bucketQueue.add(nx, ny, nd, k);
-              }
-              fastPendingParents.set(nk, { parentTileKey: k, parentDepth: e.depth });
-            }
-          }
-        }
-      }
-      return granularity;
-    }
   }
 
   return granularity;
