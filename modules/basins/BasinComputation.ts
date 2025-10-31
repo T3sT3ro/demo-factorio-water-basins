@@ -297,9 +297,17 @@ function* processSingleBasinIsland(
 
     // Detect depth change (step-up phase) - propagate accumulated count
     if (depth !== currentDepth) {
-      // Propagate tile count from current basin to its parent (O(1) per depth level)
-      if (currentBasinNode && currentBasinTileCount > 0 && currentBasinNode.parent) {
-        currentBasinNode.parent.tileCount += currentBasinTileCount;
+      // When stepping up (e.g., from depth 6 to depth 2), we might skip intermediate levels
+      // We need to propagate through each skipped level
+      if (currentBasinNode && currentBasinTileCount > 0) {
+        // Propagate count through all ancestor basins up to (but not including) target depth
+        let propagateNode: BasinNode | null = currentBasinNode;
+        while (propagateNode && propagateNode.depth > depth) {
+          if (propagateNode.parent) {
+            propagateNode.parent.tileCount += currentBasinTileCount;
+          }
+          propagateNode = propagateNode.parent;
+        }
       }
       
       currentDepth = depth;
