@@ -162,17 +162,6 @@ class BucketedDepthQueue {
 }
 
 /**
- * Update tile counts up the basin tree path
- */
-function propagateTileCountUp(node: BasinNode, count: number): void {
-  let current: BasinNode | null = node;
-  while (current) {
-    current.tileCount += count;
-    current = current.parent;
-  }
-}
-
-/**
  * Extract basin tree structure for debugging
  */
 function extractBasinTreeDebugInfo(
@@ -227,8 +216,13 @@ function determineBasinNode(
     // Same depth - reuse parent's basin node (horizontal propagation)
     return parentNode;
   } else if (tileDepth > parentNode.depth) {
-    // Deeper - always create fresh basin (descending into new area)
-    return createBasinNode(parentNode, tileDepth, nodesByDepth, childrenMap);
+    // Deeper - create chain of basins for all intermediate depths
+    // For example: parent at depth 1, tile at depth 4 creates: 1 -> 2#A -> 3#A -> 4#A
+    let current = parentNode;
+    for (let depth = parentNode.depth + 1; depth <= tileDepth; depth++) {
+      current = createBasinNode(current, depth, nodesByDepth, childrenMap);
+    }
+    return current;
   } else {
     // Shallower - traverse up to parent basin at this depth
     let current = parentNode.parent;
@@ -236,9 +230,13 @@ function determineBasinNode(
       current = current.parent;
     }
     if (!current || current.depth !== tileDepth) {
-      // Create new basin as child of nearest ancestor
+      // Create chain from nearest ancestor to this depth
       const ancestor = current || rootNode;
-      return createBasinNode(ancestor, tileDepth, nodesByDepth, childrenMap);
+      let chainCurrent = ancestor;
+      for (let depth = ancestor.depth + 1; depth <= tileDepth; depth++) {
+        chainCurrent = createBasinNode(chainCurrent, depth, nodesByDepth, childrenMap);
+      }
+      return chainCurrent;
     }
     return current;
   }
@@ -283,7 +281,7 @@ function* processSingleBasinIsland(
   pendingParents.set(seedKey, { parentTileKey: null, parentDepth: 0 });
 
   let currentDepth = seedDepth;
-  let lastBasinNode: BasinNode | null = null;
+  let currentBasinNode: BasinNode | null = null;
   let currentBasinTileCount = 0;
 
   while (!bucketQueue.isEmpty()) {
@@ -297,9 +295,16 @@ function* processSingleBasinIsland(
     const parentInfo = pendingParents.get(key);
     const parentTileKey = parentInfo?.parentTileKey ?? null;
 
-    // Detect depth change - yield if granularity includes level
+    // Detect depth change (step-up phase) - propagate accumulated count
     if (depth !== currentDepth) {
+      // Propagate tile count from current basin to its parent (O(1) per depth level)
+      if (currentBasinNode && currentBasinTileCount > 0 && currentBasinNode.parent) {
+        currentBasinNode.parent.tileCount += currentBasinTileCount;
+      }
+      
       currentDepth = depth;
+      currentBasinNode = null;
+      currentBasinTileCount = 0;
       
       if (GRANULARITY_LEVELS[granularity] >= GRANULARITY_LEVELS.level) {
         const currentNode = parentTileKey ? tileToNode.get(parentTileKey) : null;
@@ -323,7 +328,7 @@ function* processSingleBasinIsland(
     visited[y]![x] = true;
 
     // Determine basin node by traversing parent tile path
-    const currentNode = determineBasinNode(
+    const tileBasinNode = determineBasinNode(
       depth,
       parentTileKey,
       tileToNode,
@@ -332,19 +337,24 @@ function* processSingleBasinIsland(
       childrenMap,
     );
 
-    // Check if we're switching to a different basin (step-up phase)
-    if (lastBasinNode && lastBasinNode.id !== currentNode.id) {
-      // Propagate accumulated count for the previous basin
-      propagateTileCountUp(lastBasinNode, currentBasinTileCount);
+    // Assign tile to basin
+    tileToNode.set(key, tileBasinNode);
+    tileToBasin.set(key, tileBasinNode.id);
+    
+    // Check if we switched to a different basin within the same depth
+    if (currentBasinNode && currentBasinNode.id !== tileBasinNode.id) {
+      // Propagate count from previous basin to its parent
+      if (currentBasinTileCount > 0 && currentBasinNode.parent) {
+        currentBasinNode.parent.tileCount += currentBasinTileCount;
+      }
       currentBasinTileCount = 0;
     }
-
-    // Assign tile to basin
-    tileToNode.set(key, currentNode);
-    tileToBasin.set(key, currentNode.id);
-    currentNode.tileCount++; // Increment this basin's direct count
+    
+    // Increment count for this basin's own tiles
+    tileBasinNode.tileCount++;
     currentBasinTileCount++;
-    lastBasinNode = currentNode;
+    currentBasinNode = tileBasinNode;
+    
     processedTiles.add(key);
 
     // Yield if granularity includes tile level
@@ -356,7 +366,7 @@ function* processSingleBasinIsland(
         processedTiles,
         pendingTiles,
         basinTree: extractBasinTreeDebugInfo(nodesByDepth, childrenMap),
-        currentNodeId: currentNode.id,
+        currentNodeId: tileBasinNode.id,
       };
     }
 
@@ -388,9 +398,9 @@ function* processSingleBasinIsland(
     }
   }
 
-  // Propagate final basin count after loop completes
-  if (lastBasinNode && currentBasinTileCount > 0) {
-    propagateTileCountUp(lastBasinNode, currentBasinTileCount);
+  // Propagate final basin count to its parent after loop completes
+  if (currentBasinNode && currentBasinTileCount > 0 && currentBasinNode.parent) {
+    currentBasinNode.parent.tileCount += currentBasinTileCount;
   }
 
   return granularity;
@@ -470,7 +480,7 @@ function finalizeBasins(
   _root: BasinNode,
   nodesByDepth: Map<number, Map<string, BasinNode>>,
   tileToBasin: Map<string, string>,
-  heights: number[][],
+  _heights: number[][],
   basinManager: BasinManager,
 ): void {
   // Build basin tiles from tileToBasin map
@@ -505,36 +515,20 @@ function finalizeBasins(
     });
   });
 
-  // Detect outlets (tiles that flow to shallower basins)
+  // Set outlets based on basin tree parent relationships
+  // A basin's outlet is its direct parent basin in the tree (one level shallower)
   nodesByDepth.forEach((depthMap) => {
     depthMap.forEach((node) => {
-      if (node.depth === 0) return;
-
-      const outlets = new Set<string>();
-      const tiles = basinTiles.get(node.id);
-      if (!tiles) return;
-
-      tiles.forEach((tileKey) => {
-        const { x, y } = keyToCoord(tileKey);
-
-        for (const [dx, dy] of DIRECTIONS_8) {
-          const nx = x + dx, ny = y + dy;
-          if (!isInBounds(nx, ny)) continue;
-
-          const neighborHeight = heights[ny]![nx]!;
-          if (neighborHeight === 0 || neighborHeight >= node.depth) continue;
-
-          const neighborBasinId = tileToBasin.get(coordToKey(nx, ny));
-
-          if (neighborBasinId && neighborBasinId !== node.id) {
-            outlets.add(neighborBasinId);
-          }
-        }
-      });
+      if (node.depth === 0) return; // Skip root
 
       const basin = basinManager.basins.get(node.id);
-      if (basin) {
-        basin.outlets = Array.from(outlets);
+      if (!basin) return;
+
+      // The outlet is the parent basin node
+      if (node.parent && node.parent.depth > 0) {
+        basin.outlets = [node.parent.id];
+      } else {
+        basin.outlets = []; // No parent (top-level basin) or parent is root
       }
     });
   });
