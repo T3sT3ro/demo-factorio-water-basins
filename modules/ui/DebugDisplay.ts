@@ -1,6 +1,6 @@
 // Debug display for basins, reservoirs, and pumps with interactive management
 
-import type { BasinData, BasinManager } from "../basins/index.ts";
+import type { BasinManager } from "../basins/index.ts";
 import { GameState } from "../GameState.ts";
 
 export interface DebugDisplayCallbacks {
@@ -12,15 +12,6 @@ export interface DebugDisplayCallbacks {
   clearSelection: () => void;
   draw: () => void;
 }
-
-interface BasinEntry {
-  id: string;
-  height: number;
-  basin: BasinData;
-  maxCapacity: number;
-  children: BasinEntry[];
-}
-
 export class DebugDisplay {
   private basinManager: BasinManager;
   private gameState: GameState;
@@ -48,132 +39,76 @@ export class DebugDisplay {
       return;
     }
 
-    // Build a hierarchical structure of basins based on outlet relationships
-    const basinEntries: BasinEntry[] = [];
-    const basinMap = new Map<string, BasinEntry>();
+    // Convert BasinData to BasinTreeDebugInfo format for unified rendering
+    const basinTree = this.convertBasinsToTreeDebugInfo(basins);
+    
+    // Use the same rendering logic as debug mode, but without active node highlighting
+    this.renderBasinTree(basinTree, null, debugBasinsDiv);
+  }
 
-    // First pass: create entries for all basins
+  /**
+   * Convert BasinManager's BasinData to BasinTreeDebugInfo format.
+   * Computes descendant tile counts by traversing the basin hierarchy.
+   */
+  private convertBasinsToTreeDebugInfo(
+    basins: Map<string, import("../basins/types.ts").BasinData>,
+  ): import("../basins/types.ts").BasinTreeDebugInfo[] {
+    const basinTree: import("../basins/types.ts").BasinTreeDebugInfo[] = [];
+    const basinMap = new Map<string, import("../basins/types.ts").BasinTreeDebugInfo>();
+
+    // First pass: create tree nodes with own tiles
     for (const [id, basin] of basins) {
-      const entry: BasinEntry = {
-        id,
-        height: basin.height,
-        basin,
-        maxCapacity: basin.tiles.size * basin.height,
-        children: [],
+      const node: import("../basins/types.ts").BasinTreeDebugInfo = {
+        nodeId: id,
+        depth: basin.height,
+        ownTiles: basin.tiles.size,
+        descendantTiles: 0, // Will be computed in second pass
+        parentId: basin.outlets[0] ?? null, // Parent is the outlet (shallower basin)
+        childrenIds: [], // Will be populated in second pass
       };
-      basinEntries.push(entry);
-      basinMap.set(id, entry);
+      basinTree.push(node);
+      basinMap.set(id, node);
     }
 
     // Second pass: build parent-child relationships
-    // For tree display: shallow basins are "parents" that receive water from deeper "children"
-    // So if basin A has outlet B, then B is the parent of A in the tree
-    const childrenOfBasin = new Map<string, string[]>();
-
-    for (const entry of basinEntries) {
-      // For each outlet this basin has, that outlet basin should list this as a child
-      for (const outletId of entry.basin.outlets) {
-        if (!childrenOfBasin.has(outletId)) {
-          childrenOfBasin.set(outletId, []);
-        }
-        childrenOfBasin.get(outletId)!.push(entry.id);
-      }
-    }
-
-    // Find root basins (basins with no outlets - they don't overflow anywhere)
-    const rootBasins = basinEntries.filter((entry) => entry.basin.outlets.length === 0);
-
-    // Build hierarchy
-    function buildHierarchy(entry: BasinEntry): void {
-      const childIds = childrenOfBasin.get(entry.id) || [];
-      for (const childId of childIds) {
-        const childEntry = basinMap.get(childId);
-        if (childEntry && !entry.children.includes(childEntry)) {
-          entry.children.push(childEntry);
-          buildHierarchy(childEntry);
+    for (const node of basinTree) {
+      if (node.parentId) {
+        const parent = basinMap.get(node.parentId);
+        if (parent) {
+          parent.childrenIds.push(node.nodeId);
         }
       }
     }
 
-    for (const root of rootBasins) {
-      buildHierarchy(root);
-    }
+    // Third pass: compute descendant tiles (bottom-up)
+    const computeDescendantTiles = (nodeId: string): number => {
+      const node = basinMap.get(nodeId);
+      if (!node) return 0;
 
-    // Sort roots by height
-    rootBasins.sort((a, b) => a.height - b.height);
-
-    // Render hierarchical structure as nested list
-    debugBasinsDiv.innerHTML = "";
-    const rootList = document.createElement("ul");
-    rootList.className = "basin-tree";
-    const template = document.getElementById("template-basin-item") as HTMLTemplateElement | null;
-
-    const renderBasin = (entry: BasinEntry): HTMLElement | null => {
-      if (!template) return null;
-
-      const clone = template.content.cloneNode(true) as DocumentFragment;
-      const li = clone.querySelector(".basin-item") as HTMLLIElement;
-      const summary = clone.querySelector(".basin-summary") as HTMLElement;
-      const idEl = clone.querySelector(".basin-id") as HTMLElement;
-      const infoEl = clone.querySelector(".basin-info") as HTMLElement;
-      const childrenList = clone.querySelector(".basin-children") as HTMLUListElement;
-      const details = clone.querySelector("details") as HTMLDetailsElement;
-
-      if (!li || !summary || !idEl || !infoEl || !childrenList || !details) return null;
-
-      // Set basin data
-      const heightLabel = entry.basin.height === 0 ? "Surface" : `H${entry.basin.height}`;
-      const waterPercent = entry.basin.volume > 0
-        ? ((entry.basin.volume / entry.maxCapacity) * 100).toFixed(1)
-        : "0.0";
-
-      idEl.textContent = entry.id;
-      infoEl.textContent =
-        ` (${heightLabel}, ${entry.basin.tiles.size} tiles, ${waterPercent}% full)`;
-
-      // Store basin ID for interaction
-      li.dataset.basinId = entry.id;
-
-      // Hover handlers for temporary highlighting
-      summary.addEventListener("mouseenter", () => {
-        if (this.onBasinHighlightChange) {
-          this.onBasinHighlightChange(entry.id);
-        }
-        this.callbacks.draw();
-      });
-
-      summary.addEventListener("mouseleave", () => {
-        if (this.onBasinHighlightChange) {
-          this.onBasinHighlightChange(null);
-        }
-        this.callbacks.draw();
-      });
-
-      // Render children recursively
-      if (entry.children.length > 0) {
-        entry.children.forEach((child) => {
-          const childElement = renderBasin(child);
-          if (childElement) {
-            childrenList.appendChild(childElement);
+      let totalDescendants = 0;
+      for (const childId of node.childrenIds) {
+        const child = basinMap.get(childId);
+        if (child) {
+          // First ensure child's descendantTiles is computed
+          if (child.childrenIds.length > 0 && child.descendantTiles === 0) {
+            child.descendantTiles = computeDescendantTiles(childId);
           }
-        });
-      } else {
-        // Mark as leaf node (no children) for CSS styling
-        details.classList.add("leaf-node");
-        childrenList.style.display = "none";
+          // Add child's own tiles plus their descendants
+          totalDescendants += child.ownTiles + child.descendantTiles;
+        }
       }
-
-      return li;
+      node.descendantTiles = totalDescendants;
+      return totalDescendants;
     };
 
-    for (const root of rootBasins) {
-      const rootElement = renderBasin(root);
-      if (rootElement) {
-        rootList.appendChild(rootElement);
+    // Compute from roots (basins with no outlets)
+    for (const node of basinTree) {
+      if (!node.parentId) {
+        computeDescendantTiles(node.nodeId);
       }
     }
 
-    debugBasinsDiv.appendChild(rootList);
+    return basinTree;
   }
 
   updateDebugBasinTreeDisplay(
@@ -188,13 +123,31 @@ export class DebugDisplay {
       return;
     }
 
-    // Build tree structure - only show actual basin nodes (children of ROOT)
-    // ROOT node (depth 0) is just a virtual container, not a real basin
-    const roots = basinTree.filter((node) => node.parentId === "0#ROOT");
+    // Use unified rendering logic
+    this.renderBasinTree(basinTree, currentNodeId, debugBasinsDiv);
+  }
+
+  /**
+   * Unified basin tree rendering logic used by both debug and final displays.
+   */
+  private renderBasinTree(
+    basinTree: import("../basins/types.ts").BasinTreeDebugInfo[],
+    currentNodeId: string | null,
+    container: HTMLElement,
+  ): void {
+    // Check if ROOT node exists (debug mode includes it, normal mode doesn't)
+    const rootNode = basinTree.find((node) => node.nodeId === "0#ROOT");
+    
+    // If ROOT exists, only render it (it will recursively render its children)
+    // Otherwise, render all nodes without a parent (top-level basins)
+    const roots = rootNode 
+      ? [rootNode]
+      : basinTree.filter((node) => node.parentId === null);
+    
     const template = document.getElementById("template-basin-item") as HTMLTemplateElement | null;
 
     if (!template) {
-      debugBasinsDiv.innerHTML = "<em>Basin template not found</em>";
+      container.innerHTML = "<em>Basin template not found</em>";
       return;
     }
 
@@ -211,8 +164,8 @@ export class DebugDisplay {
 
       if (!li || !summary || !idEl || !infoEl || !childrenList || !details) return null;
 
-      // Mark as active node if it's the current one
-      const isActive = node.nodeId === currentNodeId;
+      // Mark as active node if it's the current one (debug mode only)
+      const isActive = currentNodeId && node.nodeId === currentNodeId;
       if (isActive) {
         li.classList.add("active-node");
         details.open = true; // Auto-expand active node
@@ -225,11 +178,28 @@ export class DebugDisplay {
       } else {
         idEl.textContent = node.nodeId;
         const totalTiles = node.ownTiles + node.descendantTiles;
-        infoEl.textContent = ` (depth: ${node.depth}, tiles: ${totalTiles} = ${node.ownTiles} + ↓:${node.descendantTiles})`;
+        infoEl.textContent = ` (depth: ${node.depth}, tiles: ${totalTiles} = ${node.ownTiles} + ↓${node.descendantTiles})`;
       }
 
       // Store node ID for interaction
       li.dataset.basinId = node.nodeId;
+
+      // Hover handlers for temporary highlighting (only in non-debug mode)
+      if (!currentNodeId) {
+        summary.addEventListener("mouseenter", () => {
+          if (this.onBasinHighlightChange) {
+            this.onBasinHighlightChange(node.nodeId);
+          }
+          this.callbacks.draw();
+        });
+
+        summary.addEventListener("mouseleave", () => {
+          if (this.onBasinHighlightChange) {
+            this.onBasinHighlightChange(null);
+          }
+          this.callbacks.draw();
+        });
+      }
 
       // Find and render children
       const children = basinTree.filter((n) => n.parentId === node.nodeId);
@@ -251,7 +221,7 @@ export class DebugDisplay {
     };
 
     // Render tree
-    debugBasinsDiv.innerHTML = "";
+    container.innerHTML = "";
     const rootList = document.createElement("ul");
     rootList.className = "basin-tree";
 
@@ -262,7 +232,7 @@ export class DebugDisplay {
       }
     }
 
-    debugBasinsDiv.appendChild(rootList);
+    container.appendChild(rootList);
   }
 
   updateReservoirsDisplay(): void {
