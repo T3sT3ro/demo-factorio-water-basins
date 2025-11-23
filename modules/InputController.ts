@@ -87,7 +87,9 @@ export class InputController {
       return;
     }
 
-    // Ctrl + Left/Right click - flood fill
+    // Ctrl + Left/Right click - flood fill basin subtree
+    // Left: fill entire subtree (if empty) or from first unfilled ancestor
+    // Right: empty entire subtree
     if (e.ctrlKey) {
       if (e.button === 0) {
         this.callbacks.onFloodFill(tile.x, tile.y, true);

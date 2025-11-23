@@ -283,6 +283,9 @@ export class BasinSerializer {
         level: data.level || 0,
         height: data.height || 0,
         outlets: data.children || [],
+        capacity: tiles.size * (data.height || 0), // Legacy: approximate capacity
+        ownTiles: tiles.size, // Legacy: no split tracking
+        descendantTiles: 0, // Legacy: unknown
       });
     });
   }
@@ -328,6 +331,9 @@ export class BasinSerializer {
         level: metadata.level || 0,
         height: treeData.height || 0,
         outlets: treeData.outlets || [],
+        capacity: tiles.size * (treeData.height || 0), // Legacy: approximate capacity
+        ownTiles: tiles.size, // Legacy: no split tracking
+        descendantTiles: 0, // Legacy: unknown
       });
     });
   }

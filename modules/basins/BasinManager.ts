@@ -58,6 +58,17 @@ export class BasinManager {
     return this.basinIdOf[y]![x] || null;
   }
 
+  getBasin(basinId: string): BasinData | null {
+    return this.basins.get(basinId) || null;
+  }
+
+  /**
+   * Fill basin and its subtree with water or empty it.
+   * When filling:
+   *   - If basin is empty: fill entire subtree to 100%
+   *   - If basin has water: find first ancestor with available capacity and fill from there
+   * When emptying: find and empty only the topmost basin with water
+   */
   floodFill(startX: number, startY: number, fillWithWater: boolean): void {
     const startBasinId = this.basinIdOf[startY]![startX];
     if (!startBasinId) return;
@@ -66,19 +77,93 @@ export class BasinManager {
     if (!basin) return;
 
     if (fillWithWater) {
-      basin.volume = basin.tiles.size * CONFIG.VOLUME_UNIT * CONFIG.MAX_DEPTH;
+      // Determine which basin subtree to fill
+      let fillRootId = startBasinId;
+
+      // If basin has water, find first ancestor with available capacity
+      if (basin.volume > 0) {
+        fillRootId = this.findFirstAncestorWithCapacity(startBasinId) ?? startBasinId;
+      }
+
+      // Fill the entire subtree starting from fillRootId
+      this.fillSubtree(fillRootId);
     } else {
-      basin.volume = 0;
+      // Find and empty only the topmost basin with water
+      const topmostBasin = this.findTopmostBasinWithWater(startBasinId);
+      if (topmostBasin) {
+        const basin = this.basins.get(topmostBasin);
+        if (basin) {
+          basin.volume = 0;
+        }
+      }
     }
 
     this.updateWaterLevels();
+  }
+
+  /**
+   * Find first ancestor with available capacity
+   */
+  private findFirstAncestorWithCapacity(startBasinId: string): string | null {
+    let currentId: string | null = startBasinId;
+
+    while (currentId) {
+      const current = this.basins.get(currentId);
+      if (!current) break;
+
+      if (current.volume < current.capacity) {
+        return currentId;
+      }
+
+      currentId = current.outlets[0] ?? null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Recursively fill a basin and all its descendants to 100% capacity
+   */
+  private fillSubtree(basinId: string): void {
+    const basin = this.basins.get(basinId);
+    if (!basin) return;
+
+    basin.volume = basin.capacity;
+
+    // Find and fill all children (basins that have this basin as outlet/parent)
+    for (const [childId, childBasin] of this.basins) {
+      if (childBasin.outlets[0] === basinId) {
+        this.fillSubtree(childId);
+      }
+    }
+  }
+
+  /**
+   * Find the topmost (shallowest) basin with water in the ancestry chain.
+   */
+  private findTopmostBasinWithWater(startBasinId: string): string | null {
+    let topmostWithWater: string | null = null;
+    let currentId: string | null = startBasinId;
+
+    while (currentId) {
+      const current = this.basins.get(currentId);
+      if (!current) break;
+
+      if (current.volume > 0) {
+        topmostWithWater = currentId;
+      }
+
+      currentId = current.outlets[0] ?? null;
+    }
+
+    return topmostWithWater;
   }
 
   updateWaterLevels(): void {
     this.handleWaterOverflow();
 
     this.basins.forEach((basin) => {
-      const capacityPerLevel = basin.tiles.size * CONFIG.VOLUME_UNIT;
+      const capacityPerLevel = basin.capacity / basin.height; // Use total capacity
       basin.level = Math.floor(basin.volume / capacityPerLevel);
       if (basin.level < 0) basin.level = 0;
       if (basin.level > CONFIG.MAX_DEPTH) basin.level = CONFIG.MAX_DEPTH;
@@ -93,7 +178,7 @@ export class BasinManager {
     sortedBasins.forEach(([, basin]) => {
       if (!basin.outlets || basin.outlets.length === 0) return;
 
-      const maxCapacity = basin.tiles.size * CONFIG.VOLUME_UNIT * CONFIG.MAX_DEPTH;
+      const maxCapacity = basin.capacity; // Use pre-computed total capacity
       if (basin.volume > maxCapacity) {
         const overflow = basin.volume - maxCapacity;
         basin.volume = maxCapacity;
