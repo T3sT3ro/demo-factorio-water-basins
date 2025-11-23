@@ -104,6 +104,8 @@ export const UI_CONSTANTS = {
 
       UI: {
         WATER_INFO: "#4a9eff", // Blue color for water volume display
+        PUMP_ACTIVE: "#00ff00", // Green for active pumps
+        PUMP_INACTIVE: "#ff6b6b", // Red for inactive pumps
       },
     },
 

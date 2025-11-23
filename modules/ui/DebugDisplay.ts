@@ -174,23 +174,32 @@ export class DebugDisplay {
       // Set node data (skip root node display)
       if (node.depth === 0) {
         idEl.textContent = "ROOT";
+        idEl.title = "Virtual root node - contains all top-level basins";
         infoEl.textContent = " (virtual root)";
       } else {
         idEl.textContent = node.nodeId;
+        idEl.title = `Basin ID: depth ${node.depth}, surface area ${node.ownTiles + node.descendantTiles} tiles`;
         const totalTiles = node.ownTiles + node.descendantTiles;
 
         // Get water volume info if basins map is provided
         let waterInfo = "";
+        let waterTooltip = "";
         if (basins) {
           const basin = basins.get(node.nodeId);
           if (basin) {
             waterInfo =
-              ` <span style="color: ${UI_CONSTANTS.RENDERING.COLORS.UI.WATER_INFO};">${basin.volume}/${basin.capacity}</span>`;
+              ` <span style="color: ${UI_CONSTANTS.RENDERING.COLORS.UI.WATER_INFO};" title="Current water volume / Maximum capacity">${basin.volume}/${basin.capacity}</span>`;
+            waterTooltip = ` Water: ${basin.volume}/${basin.capacity} cubic units.`;
           }
         }
 
         infoEl.innerHTML =
-          ` (tiles: ${totalTiles} = ${node.ownTiles} + ↓${node.descendantTiles})${waterInfo}`;
+          ` <span title="Total surface area (own tiles + descendant tiles)">tiles: ${totalTiles} = ${node.ownTiles} + ↓${node.descendantTiles}</span>${waterInfo}`;
+        if (waterTooltip) {
+          summary.title = `Basin ${node.nodeId}: ${node.ownTiles} own tiles, ${node.descendantTiles} descendant tiles.${waterTooltip}`;
+        } else {
+          summary.title = `Basin ${node.nodeId}: ${node.ownTiles} own tiles, ${node.descendantTiles} descendant tiles`;
+        }
       }
 
       // Store node ID for interaction
@@ -279,16 +288,22 @@ export class DebugDisplay {
 
     for (const [id, reservoir] of reservoirs) {
       const clone = reservoirTemplate.content.cloneNode(true) as DocumentFragment;
+      const table = clone.querySelector(".reservoir-table") as HTMLTableElement;
       const titleEl = clone.querySelector(".reservoir-title") as HTMLElement;
+      const debugInfoEl = clone.querySelector(".reservoir-debug-info") as HTMLElement;
       const removeBtn = clone.querySelector(".remove-btn") as HTMLButtonElement;
       const pumpsContainer = clone.querySelector(".reservoir-pumps") as HTMLElement;
 
-      if (titleEl && removeBtn && pumpsContainer) {
+      if (table && titleEl && debugInfoEl && removeBtn && pumpsContainer) {
         const systemPumps = pumpsByReservoir.get(id) || [];
         const pumpCount = systemPumps.length;
-        titleEl.textContent = `Pipe System ${id} - ${
-          reservoir.volume.toFixed(1)
-        } water (${pumpCount} pump${pumpCount !== 1 ? "s" : ""})`;
+        
+        titleEl.textContent = `Pipe System ${id}`;
+        titleEl.title =
+          `Pipe system: isolated water storage. Pumps transfer water between basins and this reservoir.`;
+
+        debugInfoEl.textContent = `${reservoir.volume.toFixed(1)} water · ${pumpCount} pump${pumpCount !== 1 ? "s" : ""}`;
+        debugInfoEl.title = `Current volume: ${reservoir.volume.toFixed(1)} cubic units, ${pumpCount} connected pump${pumpCount !== 1 ? "s" : ""}`;
 
         removeBtn.addEventListener("click", () => {
           this.callbacks.removeReservoir(id);
@@ -299,26 +314,103 @@ export class DebugDisplay {
         });
 
         if (systemPumps.length > 0) {
-          const table = document.createElement("table");
-          table.className = "pumps-table";
-          const tbody = document.createElement("tbody");
-
           systemPumps.forEach((pumpWithIndex, pumpIndex) => {
             const pumpClone = pumpTemplate.content.cloneNode(true) as DocumentFragment;
-            const pumpLabel = pumpClone.querySelector(".pump-label") as HTMLElement;
-            const pumpCoords = pumpClone.querySelector(".pump-coords") as HTMLElement;
-            const pumpTypeBadge = pumpClone.querySelector(".pump-type-badge") as HTMLElement;
+            const pumpItem = pumpClone.querySelector(".pump-item") as HTMLTableRowElement;
+            const activeIndicator = pumpClone.querySelector(
+              ".pump-active-indicator",
+            ) as HTMLElement;
+            const pumpBadge = pumpClone.querySelector(".pump-badge") as HTMLElement;
+            const pumpId = pumpClone.querySelector(".pump-id") as HTMLElement;
+            const pumpArrow = pumpClone.querySelector(".pump-arrow") as HTMLElement;
+            const tileCoords = pumpClone.querySelector(".pump-tile-coords") as HTMLElement;
+            const basinCursors = pumpClone.querySelector(".pump-basin-cursors") as HTMLElement;
+            const lowestCursor = pumpClone.querySelector(
+              ".pump-cursor-lowest .basin-cursor-link",
+            ) as HTMLElement;
+            const activeCursor = pumpClone.querySelector(
+              ".pump-cursor-active .basin-cursor-link",
+            ) as HTMLElement;
             const removePumpBtn = pumpClone.querySelector(".remove-btn") as HTMLButtonElement;
 
-            if (pumpLabel && pumpCoords && pumpTypeBadge && removePumpBtn) {
-              pumpLabel.textContent = `P${id}.${pumpIndex + 1}`;
-              pumpCoords.textContent = `(${pumpWithIndex.x}, ${pumpWithIndex.y})`;
+            if (
+              pumpItem && activeIndicator && pumpBadge && pumpId && pumpArrow && tileCoords &&
+              basinCursors && lowestCursor && activeCursor && removePumpBtn
+            ) {
+              // Get basin info for active state
+              const basin = this.basinManager.getBasinAt(pumpWithIndex.x, pumpWithIndex.y);
+              const isActive = basin !== null && basin.volume > 0;
 
-              // Set badge style and text based on mode
-              pumpTypeBadge.textContent = pumpWithIndex.mode;
-              pumpTypeBadge.classList.add(
+              // Set active indicator
+              activeIndicator.textContent = isActive ? "●" : "○";
+              activeIndicator.dataset.active = String(isActive);
+              activeIndicator.title = isActive
+                ? "Pump is active (basin has water)"
+                : "Pump is inactive (basin is empty)";
+
+              // Set badge
+              pumpBadge.classList.add(
                 pumpWithIndex.mode === "inlet" ? "inlet-badge" : "outlet-badge",
               );
+              pumpBadge.title = pumpWithIndex.mode === "inlet"
+                ? "Inlet pump: transfers water from basin into pipe system"
+                : "Outlet pump: transfers water from pipe system into basin";
+
+              // Set pump ID and arrow
+              pumpId.textContent = `P${id}.${pumpIndex + 1}`;
+              pumpArrow.textContent = pumpWithIndex.mode === "inlet" ? "→" : "←";
+
+              // Set tile coordinates
+              tileCoords.textContent = `(${pumpWithIndex.x}, ${pumpWithIndex.y})`;
+              tileCoords.title = "Pump tile coordinates";
+
+              // Set basin cursors
+              if (pumpWithIndex.lowestBasinId && pumpWithIndex.activeBasinId) {
+                lowestCursor.textContent = pumpWithIndex.lowestBasinId;
+                lowestCursor.dataset.basinId = pumpWithIndex.lowestBasinId;
+                lowestCursor.title =
+                  "Lowest (deepest) basin this pump can access - where water is extracted from";
+
+                activeCursor.textContent = pumpWithIndex.activeBasinId;
+                activeCursor.dataset.basinId = pumpWithIndex.activeBasinId;
+                activeCursor.title =
+                  "Currently active basin - the topmost basin with water that pump is operating on";
+
+                // Add hover and click handlers for basin highlighting
+                const setupCursorInteraction = (cursor: HTMLElement, basinId: string) => {
+                  cursor.addEventListener("mouseenter", () => {
+                    document.querySelectorAll(".basin-item").forEach((el) => {
+                      el.classList.remove("basin-highlighted");
+                    });
+                    const targetBasin = document.querySelector(
+                      `.basin-item[data-basin-id="${basinId}"]`,
+                    );
+                    if (targetBasin) {
+                      targetBasin.classList.add("basin-highlighted");
+                    }
+                  });
+
+                  cursor.addEventListener("mouseleave", () => {
+                    document.querySelectorAll(".basin-item").forEach((el) => {
+                      el.classList.remove("basin-highlighted");
+                    });
+                  });
+
+                  cursor.addEventListener("click", () => {
+                    const targetBasin = document.querySelector(
+                      `.basin-item[data-basin-id="${basinId}"]`,
+                    );
+                    if (targetBasin) {
+                      targetBasin.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                    }
+                  });
+                };
+
+                setupCursorInteraction(lowestCursor, pumpWithIndex.lowestBasinId);
+                setupCursorInteraction(activeCursor, pumpWithIndex.activeBasinId);
+              } else {
+                basinCursors.style.display = "none";
+              }
 
               removePumpBtn.addEventListener("click", () => {
                 this.callbacks.removePump(pumpWithIndex.index);
@@ -328,12 +420,9 @@ export class DebugDisplay {
                 this.callbacks.draw();
               });
 
-              tbody.appendChild(pumpClone);
+              pumpsContainer.appendChild(pumpClone);
             }
           });
-
-          table.appendChild(tbody);
-          pumpsContainer.appendChild(table);
         }
 
         debugReservoirsDiv.appendChild(clone);
