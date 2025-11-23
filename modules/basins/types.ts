@@ -6,6 +6,9 @@ export interface BasinData {
   level: number;
   height: number;
   outlets: string[];
+  capacity: number; // Total capacity in cubic units (surface area × height)
+  ownTiles: number; // Count of tiles directly in this basin
+  descendantTiles: number; // Count of tiles in all descendant basins
 }
 
 export interface TempBasinData {

@@ -2,6 +2,7 @@
 
 import type { BasinManager } from "../basins/index.ts";
 import { GameState } from "../GameState.ts";
+import { UI_CONSTANTS } from "../constants.ts";
 
 export interface DebugDisplayCallbacks {
   removePump: (index: number) => void;
@@ -41,9 +42,9 @@ export class DebugDisplay {
 
     // Convert BasinData to BasinTreeDebugInfo format for unified rendering
     const basinTree = this.convertBasinsToTreeDebugInfo(basins);
-    
+
     // Use the same rendering logic as debug mode, but without active node highlighting
-    this.renderBasinTree(basinTree, null, debugBasinsDiv);
+    this.renderBasinTree(basinTree, null, debugBasinsDiv, basins);
   }
 
   /**
@@ -123,8 +124,8 @@ export class DebugDisplay {
       return;
     }
 
-    // Use unified rendering logic
-    this.renderBasinTree(basinTree, currentNodeId, debugBasinsDiv);
+    // Use unified rendering logic with basin data for water info
+    this.renderBasinTree(basinTree, currentNodeId, debugBasinsDiv, this.basinManager.basins);
   }
 
   /**
@@ -134,16 +135,15 @@ export class DebugDisplay {
     basinTree: import("../basins/types.ts").BasinTreeDebugInfo[],
     currentNodeId: string | null,
     container: HTMLElement,
+    basins?: Map<string, import("../basins/types.ts").BasinData>,
   ): void {
     // Check if ROOT node exists (debug mode includes it, normal mode doesn't)
     const rootNode = basinTree.find((node) => node.nodeId === "0#ROOT");
-    
+
     // If ROOT exists, only render it (it will recursively render its children)
     // Otherwise, render all nodes without a parent (top-level basins)
-    const roots = rootNode 
-      ? [rootNode]
-      : basinTree.filter((node) => node.parentId === null);
-    
+    const roots = rootNode ? [rootNode] : basinTree.filter((node) => node.parentId === null);
+
     const template = document.getElementById("template-basin-item") as HTMLTemplateElement | null;
 
     if (!template) {
@@ -178,7 +178,19 @@ export class DebugDisplay {
       } else {
         idEl.textContent = node.nodeId;
         const totalTiles = node.ownTiles + node.descendantTiles;
-        infoEl.textContent = ` (depth: ${node.depth}, tiles: ${totalTiles} = ${node.ownTiles} + ↓${node.descendantTiles})`;
+
+        // Get water volume info if basins map is provided
+        let waterInfo = "";
+        if (basins) {
+          const basin = basins.get(node.nodeId);
+          if (basin) {
+            waterInfo =
+              ` <span style="color: ${UI_CONSTANTS.RENDERING.COLORS.UI.WATER_INFO};">${basin.volume}/${basin.capacity}</span>`;
+          }
+        }
+
+        infoEl.innerHTML =
+          ` (depth: ${node.depth}, tiles: ${totalTiles} = ${node.ownTiles} + ↓${node.descendantTiles})${waterInfo}`;
       }
 
       // Store node ID for interaction
@@ -366,15 +378,16 @@ export class DebugDisplay {
       div.style.cssText =
         "padding: 4px 8px; margin: 2px 0; cursor: pointer; border-radius: 4px; font-size: 12px;";
 
-      const maxCapacity = basin.tiles.size * basin.height;
       const waterPercent = basin.volume > 0
-        ? ((basin.volume / maxCapacity) * 100).toFixed(1)
+        ? ((basin.volume / basin.capacity) * 100).toFixed(1)
         : "0.0";
 
       const heightLabel = basin.height === 0 ? "Surface" : `Height ${basin.height}`;
+      const waterInfo =
+        `<span style="color: ${UI_CONSTANTS.RENDERING.COLORS.UI.WATER_INFO};">${basin.volume}/${basin.capacity}</span>`;
 
       div.innerHTML =
-        `<strong>${id}</strong> (${heightLabel}, ${basin.tiles.size} tiles, ${waterPercent}% full)`;
+        `<strong>${id}</strong> (${heightLabel}, ${basin.tiles.size} tiles, ${waterPercent}% full) ${waterInfo}`;
 
       // Hover for temporary highlighting
       div.addEventListener("mouseenter", () => {

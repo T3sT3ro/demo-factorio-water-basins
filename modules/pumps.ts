@@ -12,6 +12,8 @@ export interface Pump {
   y: number;
   mode: "inlet" | "outlet";
   reservoirId: number;
+  lowestBasinId: string | null; // Basin at the pump's tile (deepest accessible basin)
+  activeBasinId: string | null; // Basin currently at water level (at or above pump level)
 }
 
 export class ReservoirManager {
@@ -115,8 +117,64 @@ export class PumpManager {
       reservoirId = this.reservoirManager.createReservoir(1);
     }
 
-    this.pumps.push({ x, y, mode, reservoirId });
+    // Find the lowest basin at this tile (deepest basin the pump can reach)
+    const lowestBasinId = this.findLowestBasinAt(x, y);
+
+    // Find the active basin (basin at current water level, initially same as lowest)
+    const activeBasinId = this.findActiveBasinAt(x, y, lowestBasinId);
+
+    this.pumps.push({ x, y, mode, reservoirId, lowestBasinId, activeBasinId });
     return reservoirId;
+  }
+
+  /**
+   * Find the lowest (deepest) basin at a given tile.
+   * This represents the deepest point the pump can reach.
+   */
+  private findLowestBasinAt(x: number, y: number): string | null {
+    // The basin at the pump's tile is the lowest accessible basin
+    return this.basinManager.getBasinIdAt(x, y);
+  }
+
+  /**
+   * Find the active basin at a given tile based on current water levels.
+   * The active basin is the basin containing the current water surface level.
+   * It must be at or above the pump level (lowest basin) and at or below depth 1.
+   */
+  private findActiveBasinAt(_x: number, _y: number, lowestBasinId: string | null): string | null {
+    if (!lowestBasinId) return null;
+
+    const lowestBasin = this.basinManager.getBasin(lowestBasinId);
+    if (!lowestBasin) return null;
+
+    // Start from the lowest basin and traverse up through ancestors
+    // to find the basin that currently contains water at this location
+    let currentBasinId: string | null = lowestBasinId;
+
+    while (currentBasinId) {
+      const basin = this.basinManager.getBasin(currentBasinId);
+      if (!basin) break;
+
+      // Check if this basin has water (level > 0)
+      if (basin.level > 0) {
+        return currentBasinId;
+      }
+
+      // Move to parent basin (shallower outlet)
+      // For now, assume first outlet is the parent (we'll refine this)
+      currentBasinId = basin.outlets[0] ?? null;
+
+      // Stop at depth 1 (can't pump above ground level)
+      if (basin.outlets.length > 0) {
+        const parentBasin = this.basinManager.getBasin(basin.outlets[0]!);
+        if (parentBasin && parentBasin.height <= 1) {
+          break;
+        }
+      }
+    }
+
+    // If no basin with water found, default to lowest basin
+    return lowestBasinId;
   }
 
   linkPumpToReservoir(x: number, y: number): boolean {

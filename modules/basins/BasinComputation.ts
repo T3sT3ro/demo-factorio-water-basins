@@ -29,8 +29,6 @@ export function generateLetterSequence(index: number): string {
   return result;
 }
 
-
-
 /**
  * Extract basin tree structure for debugging
  */
@@ -61,10 +59,10 @@ function extractBasinTreeDebugInfo(
 
 // Granularity levels (like logging levels)
 const GRANULARITY_LEVELS = {
-  finish: 0,  // No yielding
-  island: 1,  // Yield on island change
-  level: 2,   // Yield on depth/level change
-  tile: 3,    // Yield on every tile
+  finish: 0, // No yielding
+  island: 1, // Yield on island change
+  level: 2, // Yield on depth/level change
+  tile: 3, // Yield on every tile
 } as const;
 
 /**
@@ -116,7 +114,7 @@ function* processSingleBasinIsland(
     if (depth !== currentDepth) {
       cursor.moveUp();
       currentDepth = depth;
-      
+
       if (GRANULARITY_LEVELS[granularity] >= GRANULARITY_LEVELS.level) {
         const currentNode = parentTileKey ? tileToNode.get(parentTileKey) : null;
         granularity = yield {
@@ -140,11 +138,11 @@ function* processSingleBasinIsland(
 
     // Navigate to appropriate basin for this tile (creates basins if needed)
     const tileBasinNode = cursor.navigateToTileBasin(depth, parentTileKey);
-    
+
     // Add tile to current basin via cursor
     cursor.addTile(key);
     tileToBasin.set(key, tileBasinNode.id);
-    
+
     processedTiles.add(key);
 
     // Yield if granularity includes tile level
@@ -293,6 +291,9 @@ function finalizeBasins(
         level: 0,
         height: node.depth,
         outlets: [], // Will be filled in next step
+        capacity: (node.ownTiles + node.descendantTiles) * node.depth,
+        ownTiles: node.ownTiles,
+        descendantTiles: node.descendantTiles,
       });
 
       // Update basinIdOf map

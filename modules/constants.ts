@@ -101,6 +101,10 @@ export const UI_CONSTANTS = {
         STROKE_DARK_BG: "black", // Text stroke on dark backgrounds
         GRAY_THRESHOLD: 130, // Threshold for switching text colors
       },
+
+      UI: {
+        WATER_INFO: "#4a9eff", // Blue color for water volume display
+      },
     },
 
     // Scaling and sizing

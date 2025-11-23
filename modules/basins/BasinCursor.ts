@@ -20,12 +20,12 @@ export interface BasinNode {
 /**
  * Basin cursor manages navigation through basin tree during island processing.
  * Handles basin creation, navigation, and tile count propagation.
- * 
+ *
  * Key invariant: Propagation to descendantTiles only happens during upward depth movement.
  */
 export class BasinCursor {
   private currentBasin: BasinNode | null = null;
-  
+
   constructor(
     private root: BasinNode,
     private nodesByDepth: Map<number, Map<string, BasinNode>>,
@@ -43,7 +43,7 @@ export class BasinCursor {
   /**
    * Navigate to the appropriate basin for a tile at given depth.
    * Creates basins as needed based on parent tile context.
-   * 
+   *
    * Important: Does NOT propagate counts - that only happens on upward depth movement.
    */
   navigateToTileBasin(tileDepth: number, parentTileKey: string | null): BasinNode {
@@ -92,17 +92,17 @@ export class BasinCursor {
    */
   moveUp(): void {
     if (!this.currentBasin) return;
-    
+
     const startBasin = this.currentBasin;
     const tilesToPropagate = startBasin.ownTiles + startBasin.descendantTiles;
-    
+
     // Propagate the total tile count (own + descendants) to ALL ancestors
     let node: BasinNode | null = startBasin.parent;
     while (node) {
       node.descendantTiles += tilesToPropagate;
       node = node.parent;
     }
-    
+
     this.currentBasin = null;
   }
 
@@ -113,12 +113,12 @@ export class BasinCursor {
    */
   private ensureBasinChain(startNode: BasinNode, targetDepth: number): BasinNode {
     let current = startNode;
-    
+
     // Create nodes for each depth level from startNode.depth+1 to targetDepth
     for (let depth = startNode.depth + 1; depth <= targetDepth; depth++) {
       current = this.createBasinNode(current, depth);
     }
-    
+
     return current;
   }
 
@@ -161,7 +161,7 @@ export class BasinCursor {
     if (!this.currentBasin) {
       throw new Error("Cannot add tile: cursor not positioned at any basin");
     }
-    
+
     this.tileToNode.set(tileKey, this.currentBasin);
     this.currentBasin.ownTiles++;
   }
