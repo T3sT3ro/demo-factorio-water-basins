@@ -25,7 +25,8 @@ export interface BasinDebugInfo {
 export interface BasinTreeDebugInfo {
   nodeId: string;
   depth: number;
-  tileCount: number;
+  ownTiles: number;
+  descendantTiles: number;
   parentId: string | null;
   childrenIds: string[];
 }
