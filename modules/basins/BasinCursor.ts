@@ -3,6 +3,7 @@
  * Handles basin creation, navigation, and tile count propagation.
  */
 
+import { CONFIG } from "../config.ts";
 import { generateLetterSequence } from "./BasinComputation.ts";
 
 /**
@@ -47,33 +48,40 @@ export class BasinCursor {
    * Important: Does NOT propagate counts - that only happens on upward depth movement.
    */
   navigateToTileBasin(tileDepth: number, parentTileKey: string | null): BasinNode {
+    // Clamp depth to valid range to prevent errors from invalid terrain data
+    const depth = Math.min(tileDepth, CONFIG.MAX_DEPTH);
+    
+    if (depth !== tileDepth) {
+      console.warn(`Tile depth ${tileDepth} exceeds MAX_DEPTH ${CONFIG.MAX_DEPTH}, clamping to ${depth}`);
+    }
+
     let targetBasin: BasinNode;
 
     if (!parentTileKey) {
       // Seed tile - create complete chain from root to this depth
-      targetBasin = this.ensureBasinChain(this.root, tileDepth);
+      targetBasin = this.ensureBasinChain(this.root, depth);
     } else {
       const parentNode = this.tileToNode.get(parentTileKey);
       if (!parentNode) {
         throw new Error(`Parent tile ${parentTileKey} has no basin node assigned`);
       }
 
-      if (tileDepth === parentNode.depth) {
+      if (depth === parentNode.depth) {
         // Same depth - reuse parent's basin (horizontal propagation within same level)
         targetBasin = parentNode;
-      } else if (tileDepth > parentNode.depth) {
+      } else if (depth > parentNode.depth) {
         // Deeper - create chain for intermediate depths
-        targetBasin = this.ensureBasinChain(parentNode, tileDepth);
+        targetBasin = this.ensureBasinChain(parentNode, depth);
       } else {
         // Shallower - traverse up to find basin at this depth
         let current = parentNode.parent;
-        while (current && current.depth > tileDepth) {
+        while (current && current.depth > depth) {
           current = current.parent;
         }
-        if (!current || current.depth !== tileDepth) {
+        if (!current || current.depth !== depth) {
           // No basin exists at this depth - create chain from nearest ancestor
           const ancestor = current || this.root;
-          targetBasin = this.ensureBasinChain(ancestor, tileDepth);
+          targetBasin = this.ensureBasinChain(ancestor, depth);
         } else {
           targetBasin = current;
         }
