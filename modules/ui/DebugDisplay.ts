@@ -324,18 +324,14 @@ export class DebugDisplay {
             const pumpId = pumpClone.querySelector(".pump-id") as HTMLElement;
             const pumpArrow = pumpClone.querySelector(".pump-arrow") as HTMLElement;
             const tileCoords = pumpClone.querySelector(".pump-tile-coords") as HTMLElement;
-            const basinCursors = pumpClone.querySelector(".pump-basin-cursors") as HTMLElement;
-            const lowestCursor = pumpClone.querySelector(
-              ".pump-cursor-lowest .basin-cursor-link",
-            ) as HTMLElement;
-            const activeCursor = pumpClone.querySelector(
-              ".pump-cursor-active .basin-cursor-link",
+            const basinStackContainer = pumpClone.querySelector(
+              ".pump-basin-stack",
             ) as HTMLElement;
             const removePumpBtn = pumpClone.querySelector(".remove-btn") as HTMLButtonElement;
 
             if (
               pumpItem && activeIndicator && pumpBadge && pumpId && pumpArrow && tileCoords &&
-              basinCursors && lowestCursor && activeCursor && removePumpBtn
+              basinStackContainer && removePumpBtn
             ) {
               // Get basin info for active state
               const basin = this.basinManager.getBasinAt(pumpWithIndex.x, pumpWithIndex.y);
@@ -364,21 +360,36 @@ export class DebugDisplay {
               tileCoords.textContent = `(${pumpWithIndex.x}, ${pumpWithIndex.y})`;
               tileCoords.title = "Pump tile coordinates";
 
-              // Set basin cursors
-              if (pumpWithIndex.lowestBasinId && pumpWithIndex.activeBasinId) {
-                lowestCursor.textContent = pumpWithIndex.lowestBasinId;
-                lowestCursor.dataset.basinId = pumpWithIndex.lowestBasinId;
-                lowestCursor.title =
-                  "Lowest (deepest) basin this pump can access - where water is extracted from";
+              // Render basin stack
+              basinStackContainer.innerHTML = "";
+              if (pumpWithIndex.basinStack && pumpWithIndex.basinStack.length > 0) {
+                basinStackContainer.title = "Basin stack: deepest → shallowest. Active basin highlighted.";
+                
+                pumpWithIndex.basinStack.forEach((basinId, index) => {
+                  // Add arrow separator (except before first item)
+                  if (index > 0) {
+                    const arrow = document.createElement("span");
+                    arrow.className = "basin-stack-arrow";
+                    arrow.textContent = "→";
+                    basinStackContainer.appendChild(arrow);
+                  }
 
-                activeCursor.textContent = pumpWithIndex.activeBasinId;
-                activeCursor.dataset.basinId = pumpWithIndex.activeBasinId;
-                activeCursor.title =
-                  "Currently active basin - the topmost basin with water that pump is operating on";
+                  // Create basin item
+                  const basinItem = document.createElement("span");
+                  basinItem.className = "basin-stack-item";
+                  basinItem.textContent = basinId;
+                  basinItem.dataset.basinId = basinId;
 
-                // Add hover and click handlers for basin highlighting
-                const setupCursorInteraction = (cursor: HTMLElement, basinId: string) => {
-                  cursor.addEventListener("mouseenter", () => {
+                  // Mark active basin
+                  if (basinId === pumpWithIndex.activeBasinId) {
+                    basinItem.classList.add("active");
+                    basinItem.title = `Active basin: ${basinId} (currently being pumped)`;
+                  } else {
+                    basinItem.title = `Basin: ${basinId}`;
+                  }
+
+                  // Add hover and click interactions
+                  basinItem.addEventListener("mouseenter", () => {
                     document.querySelectorAll(".basin-item").forEach((el) => {
                       el.classList.remove("basin-highlighted");
                     });
@@ -390,13 +401,13 @@ export class DebugDisplay {
                     }
                   });
 
-                  cursor.addEventListener("mouseleave", () => {
+                  basinItem.addEventListener("mouseleave", () => {
                     document.querySelectorAll(".basin-item").forEach((el) => {
                       el.classList.remove("basin-highlighted");
                     });
                   });
 
-                  cursor.addEventListener("click", () => {
+                  basinItem.addEventListener("click", () => {
                     const targetBasin = document.querySelector(
                       `.basin-item[data-basin-id="${basinId}"]`,
                     );
@@ -404,12 +415,12 @@ export class DebugDisplay {
                       targetBasin.scrollIntoView({ behavior: "smooth", block: "nearest" });
                     }
                   });
-                };
 
-                setupCursorInteraction(lowestCursor, pumpWithIndex.lowestBasinId);
-                setupCursorInteraction(activeCursor, pumpWithIndex.activeBasinId);
+                  basinStackContainer.appendChild(basinItem);
+                });
               } else {
-                basinCursors.style.display = "none";
+                basinStackContainer.textContent = "—";
+                basinStackContainer.title = "No basin stack";
               }
 
               removePumpBtn.addEventListener("click", () => {
