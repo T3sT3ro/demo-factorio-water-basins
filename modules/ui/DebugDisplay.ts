@@ -80,18 +80,6 @@ export class DebugDisplay {
       }
     }
 
-    // Debug: Print outlet relationships
-    console.log("=== Basin Outlet Relationships ===");
-    for (const [id, basin] of basins) {
-      const feeders = childrenOfBasin.get(id) || [];
-      console.log(
-        `${id}: outlets=[${basin.outlets.join(", ") || "none"}], feeders=[${
-          feeders.join(", ") || "none"
-        }]`,
-      );
-    }
-    console.log("==================================");
-
     // Find root basins (basins with no outlets - they don't overflow anywhere)
     const rootBasins = basinEntries.filter((entry) => entry.basin.outlets.length === 0);
 
@@ -113,53 +101,6 @@ export class DebugDisplay {
 
     // Sort roots by height
     rootBasins.sort((a, b) => a.height - b.height);
-
-    // Debug: Print basin tree structure
-    console.log("\n╔════════════════════════════════════════════════════════════╗");
-    console.log("║              Basin Tree Structure                          ║");
-    console.log("╠════════════════════════════════════════════════════════════╣");
-    console.log(`║ Total basins: ${basins.size.toString().padEnd(44)}║`);
-    console.log(`║ Root basins:  ${rootBasins.length.toString().padEnd(44)}║`);
-    console.log("╚════════════════════════════════════════════════════════════╝\n");
-
-    function printTree(
-      entry: BasinEntry,
-      indent: number = 0,
-      isLast: boolean = true,
-      prefix: string = "",
-    ): void {
-      const connector = isLast ? "└─" : "├─";
-      const childPrefix = prefix + (isLast ? "  " : "│ ");
-
-      const heightLabel = entry.basin.height === 0 ? "Surface" : `H${entry.basin.height}`;
-      const waterPercent = entry.basin.volume > 0
-        ? ((entry.basin.volume / entry.maxCapacity) * 100).toFixed(1)
-        : "0.0";
-      const outletStr = entry.basin.outlets.length > 0
-        ? ` → [${entry.basin.outlets.join(", ")}]`
-        : "";
-
-      console.log(
-        `${prefix}${connector} ${entry.id} (${heightLabel}, ${entry.basin.tiles.size} tiles, ${waterPercent}% full)${outletStr}`,
-      );
-
-      for (let i = 0; i < entry.children.length; i++) {
-        const child = entry.children[i]!;
-        const childIsLast = i === entry.children.length - 1;
-        printTree(child, indent + 1, childIsLast, childPrefix);
-      }
-    }
-
-    if (rootBasins.length === 0) {
-      console.log("  (no basins)\n");
-    } else {
-      for (let i = 0; i < rootBasins.length; i++) {
-        const root = rootBasins[i]!;
-        const isLast = i === rootBasins.length - 1;
-        printTree(root, 0, isLast, "");
-      }
-    }
-    console.log("");
 
     // Render hierarchical structure as nested list
     debugBasinsDiv.innerHTML = "";
@@ -283,7 +224,8 @@ export class DebugDisplay {
         infoEl.textContent = " (virtual root)";
       } else {
         idEl.textContent = node.nodeId;
-        infoEl.textContent = ` (depth: ${node.depth}, tiles: ${node.tileCount})`;
+        const totalTiles = node.ownTiles + node.descendantTiles;
+        infoEl.textContent = ` (depth: ${node.depth}, tiles: ${totalTiles} = ${node.ownTiles} + ↓:${node.descendantTiles})`;
       }
 
       // Store node ID for interaction
