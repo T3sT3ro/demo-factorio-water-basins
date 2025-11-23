@@ -125,101 +125,165 @@
     }
   }
 
-  /* Reservoir and pump items */
-  .reservoir-item {
-    margin-block-end: var(--size-2);
+  /* Highlighted basin (from pump cursor click) */
+  .basin-item.basin-highlighted {
+    background: rgba(255, 165, 0, 0.12); /* Subtle orange background */
+    border-inline-start: var(--border-size-2) solid
+      rgba(255, 140, 0, 0.8); /* Orange border */
     padding: var(--size-1);
+    margin: var(--size-1) 0;
+    border-radius: var(--radius-2);
+
+    & .basin-id {
+      font-weight: var(--font-weight-7);
+      color: var(--orange-9);
+    }
+
+    & summary {
+      background: transparent;
+    }
+  }
+
+  /* Reservoir and pump items */
+  .reservoir-table {
+    inline-size: 100%;
+    margin-block-end: var(--size-3);
     border: var(--border-size-1) solid var(--border-color-1);
-    border-radius: var(--radius-1);
+    border-radius: var(--radius-2);
+    border-spacing: 0;
     background: var(--surface-1);
     font-size: var(--font-size-0);
-    line-height: var(--line-height-2);
+    overflow: hidden;
   }
 
   .reservoir-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--size-2);
-    margin-block-end: var(--size-1);
+    background: var(--surface-2);
+    border-block-end: var(--border-size-1) solid var(--border-color-1);
 
-    & .remove-btn {
-      flex-shrink: 0;
+    & th {
+      padding: var(--size-2);
+      text-align: start;
+      font-weight: var(--font-weight-6);
     }
   }
 
   .reservoir-title {
-    font-weight: bold;
     color: var(--text-1);
-    flex: 1;
+    font-weight: var(--font-weight-6);
+  }
+
+  .reservoir-debug-info {
+    color: var(--text-2);
     font-size: var(--font-size-0);
+    text-align: end;
+    white-space: nowrap;
+  }
+
+  .reservoir-actions {
+    text-align: end;
+    inline-size: 1%;
+    white-space: nowrap;
   }
 
   .reservoir-pumps {
-    padding-inline-start: var(--size-2);
-  }
-
-  .pumps-table {
-    inline-size: 100%;
-    border-spacing: 0;
-    font-size: var(--font-size-0);
+    & tr:not(:last-child) {
+      border-block-end: var(--border-size-1) solid var(--border-color-1);
+    }
   }
 
   .pump-item {
     & td {
-      padding-block: 2px;
-      padding-inline-end: var(--size-2);
+      padding: var(--size-2);
       vertical-align: middle;
-
-      &:last-child {
-        text-align: end;
-      }
-    }
-
-    & .remove-btn {
-      padding: 1px var(--size-1);
-      min-inline-size: 20px;
     }
   }
 
-  .pump-label {
-    color: var(--text-1);
-    font-weight: var(--font-weight-6);
-    font-size: var(--font-size-0);
+  .pump-active-cell {
+    inline-size: 1%;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .pump-active-indicator {
+    font-weight: bold;
+    font-size: var(--font-size-2);
+    line-height: 1;
+
+    &[data-active="true"] {
+      color: var(--blue-7);
+    }
+
+    &[data-active="false"] {
+      color: var(--gray-5);
+    }
   }
 
   .pump-coords {
-    color: var(--text-2);
+    color: var(--text-1);
     font-size: var(--font-size-0);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
-  .pump-type-badge {
-    padding: 1px var(--size-2);
-    border-radius: var(--radius-2);
-    font-size: var(--font-size-00);
-    font-weight: var(--font-weight-9);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    text-align: center;
-    inline-size: fit-content;
-    display: inline-block;
+  .pump-badge-cell {
+    inline-size: 1%;
+    white-space: nowrap;
   }
 
-  .inlet-badge {
-    background: var(--red-3);
-    color: var(--red-9);
-    &::before {
-      content: "-> ";
+  .pump-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--size-1);
+    font-size: var(--font-size-0);
+    font-weight: var(--font-weight-7);
+
+    &.inlet-badge {
+      color: var(--red-7);
+    }
+
+    &.outlet-badge {
+      color: var(--green-7);
     }
   }
 
-  .outlet-badge {
-    background: var(--green-3);
-    color: var(--green-9);
-    &::after {
-      content: " ->";
+  .pump-arrow {
+    font-size: var(--font-size-1);
+    font-weight: bold;
+  }
+
+  .pump-basin-cursors {
+    display: flex;
+    gap: var(--size-2);
+    font-size: var(--font-size-0);
+    color: var(--text-2);
+  }
+
+  .pump-cursor-lowest,
+  .pump-cursor-active {
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+  }
+
+  .cursor-label {
+    color: var(--text-2);
+    font-weight: var(--font-weight-5);
+  }
+
+  .basin-cursor-link {
+    color: var(--link);
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--link-visited);
     }
+  }
+
+  .pump-actions {
+    text-align: end;
+    inline-size: 1%;
+    white-space: nowrap;
   }
 
   /* Pipe system input */

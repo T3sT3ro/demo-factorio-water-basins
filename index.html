@@ -384,21 +384,48 @@
     </template>
 
     <template id="template-reservoir-item">
-      <div class="reservoir-item">
-        <div class="reservoir-header">
-          <span class="reservoir-title"></span>
-          <button class="remove-btn" title="Remove this pipe system">remove</button>
-        </div>
-        <div class="reservoir-pumps"></div>
-      </div>
+      <table class="reservoir-table">
+        <thead>
+          <tr class="reservoir-header">
+            <th class="reservoir-title" colspan="3"></th>
+            <th class="reservoir-debug-info"></th>
+            <th class="reservoir-actions">
+              <button class="remove-btn" title="Remove this pipe system">remove</button>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="reservoir-pumps">
+        </tbody>
+      </table>
     </template>
 
     <template id="template-pump-item">
       <tr class="pump-item">
-        <td class="pump-label"></td>
-        <td class="pump-type-badge"></td>
-        <td class="pump-coords"></td>
-        <td><button class="remove-btn" title="Remove this pump">remove</button></td>
+        <td class="pump-active-cell">
+          <span class="pump-active-indicator"></span>
+        </td>
+        <td class="pump-badge-cell">
+          <span class="pump-badge">
+            <span class="pump-id"></span>
+            <span class="pump-arrow"></span>
+          </span>
+        </td>
+        <td class="pump-coords">
+          <span class="pump-tile-coords"></span>
+        </td>
+        <td class="pump-basin-cursors">
+          <span class="pump-cursor-lowest">
+            <span class="cursor-label">L:</span>
+            <span class="basin-cursor-link"></span>
+          </span>
+          <span class="pump-cursor-active">
+            <span class="cursor-label">A:</span>
+            <span class="basin-cursor-link"></span>
+          </span>
+        </td>
+        <td class="pump-actions">
+          <button class="remove-btn" title="Remove this pump">remove</button>
+        </td>
       </tr>
     </template>
   </body>
