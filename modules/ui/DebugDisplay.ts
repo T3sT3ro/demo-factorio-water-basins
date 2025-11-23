@@ -190,7 +190,7 @@ export class DebugDisplay {
         }
 
         infoEl.innerHTML =
-          ` (depth: ${node.depth}, tiles: ${totalTiles} = ${node.ownTiles} + ↓${node.descendantTiles})${waterInfo}`;
+          ` (tiles: ${totalTiles} = ${node.ownTiles} + ↓${node.descendantTiles})${waterInfo}`;
       }
 
       // Store node ID for interaction
