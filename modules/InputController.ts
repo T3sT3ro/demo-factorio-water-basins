@@ -7,7 +7,6 @@ export interface InputCallbacks {
   onPaintEnd: () => void;
   onFloodFill: (x: number, y: number, fill: boolean) => void;
   onAddPump: (x: number, y: number, mode: "inlet" | "outlet") => void;
-  onLinkPump: (x: number, y: number) => void;
   onPickDepth: (x: number, y: number) => void;
   onBrushSizeChange: (size: number) => void;
   onDepthChange: (delta: number) => void;
@@ -80,10 +79,6 @@ export class InputController {
     // Alt + Right click - pick depth
     if (e.altKey && e.button === 2) {
       this.callbacks.onPickDepth(tile.x, tile.y);
-      return;
-    } // Ctrl + Shift + Left click - link pump to reservoir
-    if (e.ctrlKey && e.shiftKey && e.button === 0) {
-      this.callbacks.onLinkPump(tile.x, tile.y);
       return;
     }
 

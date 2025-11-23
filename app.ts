@@ -129,7 +129,6 @@ class TilemapWaterPumpingApp {
       onPaintEnd: () => this.handlePaintEnd(),
       onFloodFill: (x, y, fill) => this.handleFloodFill(x, y, fill),
       onAddPump: (x, y, mode) => this.handleAddPump(x, y, mode),
-      onLinkPump: (x, y) => this.handleLinkPump(x, y),
       onPickDepth: (x, y) => this.handlePickDepth(x, y),
       onBrushSizeChange: (delta) => this.handleBrushSizeChange(delta),
       onDepthChange: (delta) => this.handleDepthChange(delta),
@@ -347,12 +346,6 @@ class TilemapWaterPumpingApp {
     this.gameState.pumpManager.addPumpAt(x, y, mode, selectedId !== null);
     this.updateCoordinator.onPumpsChange();
     this.updateReservoirControls();
-  }
-
-  private handleLinkPump(x: number, y: number): void {
-    this.gameState.pumpManager.linkPumpToReservoir(x, y);
-    this.updateReservoirControls();
-    this.draw();
   }
 
   private handlePickDepth(x: number, y: number): void {
