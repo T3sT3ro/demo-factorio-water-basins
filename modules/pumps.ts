@@ -13,7 +13,8 @@ export interface Pump {
   mode: "inlet" | "outlet";
   reservoirId: number;
   lowestBasinId: string | null; // Basin at the pump's tile (deepest accessible basin)
-  activeBasinId: string | null; // Basin currently at water level (at or above pump level)
+  activeBasinId: string | null; // Basin currently being pumped from/to (top of stack)
+  basinStack: string[]; // Stack of basin IDs from lowest to highest (for navigation)
 }
 
 export class ReservoirManager {
@@ -120,10 +121,13 @@ export class PumpManager {
     // Find the lowest basin at this tile (deepest basin the pump can reach)
     const lowestBasinId = this.findLowestBasinAt(x, y);
 
+    // Build the basin stack from lowest to highest (following outlets)
+    const basinStack = this.buildBasinStack(lowestBasinId);
+
     // Find the active basin (basin at current water level, initially same as lowest)
     const activeBasinId = this.findActiveBasinAt(x, y, lowestBasinId);
 
-    this.pumps.push({ x, y, mode, reservoirId, lowestBasinId, activeBasinId });
+    this.pumps.push({ x, y, mode, reservoirId, lowestBasinId, activeBasinId, basinStack });
     return reservoirId;
   }
 
@@ -134,6 +138,26 @@ export class PumpManager {
   private findLowestBasinAt(x: number, y: number): string | null {
     // The basin at the pump's tile is the lowest accessible basin
     return this.basinManager.getBasinIdAt(x, y);
+  }
+
+  /**
+   * Build a stack of basin IDs from lowest (deepest) to highest (shallowest).
+   * The stack follows the outlet chain from the starting basin upwards.
+   */
+  private buildBasinStack(startBasinId: string | null): string[] {
+    if (!startBasinId) return [];
+
+    const stack: string[] = [];
+    let currentId: string | null = startBasinId;
+
+    while (currentId) {
+      stack.push(currentId);
+      const basin = this.basinManager.getBasin(currentId);
+      if (!basin || basin.outlets.length === 0) break;
+      currentId = basin.outlets[0] ?? null; // Follow first outlet (parent basin)
+    }
+
+    return stack;
   }
 
   /**
@@ -205,21 +229,68 @@ export class PumpManager {
 
   tick(): void {
     for (const pump of this.pumps) {
-      const basin = this.basinManager.getBasinAt(pump.x, pump.y);
       const reservoir = this.reservoirManager.getReservoir(pump.reservoirId);
+      if (!reservoir) continue;
 
-      if (!basin || !reservoir) continue;
+      // Ensure activeBasinId is set (defaults to lowestBasinId)
+      if (!pump.activeBasinId) {
+        pump.activeBasinId = pump.lowestBasinId;
+      }
+
+      // Get the currently active basin
+      const activeBasin = pump.activeBasinId
+        ? this.basinManager.getBasin(pump.activeBasinId)
+        : null;
+
+      if (!activeBasin || pump.basinStack.length === 0) continue;
+
+      // Find current position in stack
+      const stackIndex = pump.activeBasinId ? pump.basinStack.indexOf(pump.activeBasinId) : -1;
+      if (stackIndex === -1) continue;
 
       if (pump.mode === "inlet") {
-        // Pump water from basin to reservoir
-        const take = Math.min(CONFIG.PUMP_RATE, basin.volume);
-        basin.volume -= take;
+        // Pump water from basin to reservoir (extract from topmost basin with water)
+        const take = Math.min(CONFIG.PUMP_RATE, activeBasin.volume);
+        activeBasin.volume -= take;
         reservoir.volume += take;
+
+        // If basin is drained, move down the stack to next basin with water
+        if (activeBasin.volume <= 0 && stackIndex > 0) {
+          // Search down the stack (towards deeper basins) for water
+          for (let i = stackIndex - 1; i >= 0; i--) {
+            const basinId = pump.basinStack[i];
+            const basin = this.basinManager.getBasin(basinId!);
+            if (basin && basin.volume > 0) {
+              pump.activeBasinId = basinId!;
+              break;
+            }
+          }
+        }
       } else {
-        // Pump water from reservoir to basin
+        // Pump water from reservoir to basin (fill from deepest basin upward)
         const give = Math.min(CONFIG.PUMP_RATE, Math.max(0, reservoir.volume));
-        reservoir.volume -= give;
-        basin.volume += give;
+        const spaceAvailable = activeBasin.capacity - activeBasin.volume;
+        const actualGive = Math.min(give, spaceAvailable);
+
+        reservoir.volume -= actualGive;
+        activeBasin.volume += actualGive;
+
+        // If basin reaches capacity, move up the stack to parent basin
+        if (activeBasin.volume >= activeBasin.capacity && stackIndex < pump.basinStack.length - 1) {
+          pump.activeBasinId = pump.basinStack[stackIndex + 1]!;
+          
+          // Add any remaining water to parent
+          const remaining = give - actualGive;
+          if (remaining > 0) {
+            const parentBasin = this.basinManager.getBasin(pump.activeBasinId);
+            if (parentBasin) {
+              const parentSpace = parentBasin.capacity - parentBasin.volume;
+              const parentGive = Math.min(remaining, parentSpace);
+              parentBasin.volume += parentGive;
+              reservoir.volume += remaining - parentGive; // Return unused water
+            }
+          }
+        }
       }
     }
 
