@@ -124,8 +124,17 @@ export class PumpManager {
     // Build the basin stack from lowest to highest (following outlets)
     const basinStack = this.buildBasinStack(lowestBasinId);
 
-    // Find the active basin (basin at current water level, initially same as lowest)
-    const activeBasinId = this.findActiveBasinAt(x, y, lowestBasinId);
+    // Set initial active basin based on pump mode:
+    // - Inlet: Start from shallowest basin (end of stack) where water surface is
+    // - Outlet: Start from deepest basin (start of stack) to fill bottom-up
+    let activeBasinId: string | null;
+    if (mode === "inlet") {
+      // For inlet, start from the topmost basin with water (end of stack)
+      activeBasinId = basinStack.length > 0 ? basinStack[basinStack.length - 1]! : lowestBasinId;
+    } else {
+      // For outlet, start from the deepest basin (start of stack)
+      activeBasinId = lowestBasinId;
+    }
 
     this.pumps.push({ x, y, mode, reservoirId, lowestBasinId, activeBasinId, basinStack });
     return reservoirId;
@@ -249,12 +258,12 @@ export class PumpManager {
       if (stackIndex === -1) continue;
 
       if (pump.mode === "inlet") {
-        // Pump water from basin to reservoir (extract from topmost basin with water)
+        // Pump water from basin to reservoir (extract from shallowest basin with water)
         const take = Math.min(CONFIG.PUMP_RATE, activeBasin.volume);
         activeBasin.volume -= take;
         reservoir.volume += take;
 
-        // If basin is drained, move down the stack to next basin with water
+        // If basin is drained, move down the stack to deeper basin with water
         if (activeBasin.volume <= 0 && stackIndex > 0) {
           // Search down the stack (towards deeper basins) for water
           for (let i = stackIndex - 1; i >= 0; i--) {

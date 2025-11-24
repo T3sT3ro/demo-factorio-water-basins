@@ -400,7 +400,7 @@ class TilemapWaterPumpingApp {
           this.tickInterval = setInterval(() => {
             this.gameState.tick();
             this.updateCoordinator.onWaterChange();
-          }, 100);
+          }, 20);
         }, 500);
       };
 
