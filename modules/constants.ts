@@ -45,7 +45,7 @@ export const UI_CONSTANTS = {
     // Terrain colors
     COLORS: {
       TERRAIN: {
-        SURFACE: "rgb(139, 69, 19)", // Brown for surface (depth 0)
+        SURFACE: "#8b4513", // Brown for surface (depth 0)
         DEPTH_LIGHT_GRAY: 220, // Light gray value for shallow water
         DEPTH_DARK_GRAY: 40, // Dark gray value for deep water
         DEPTH_GRAY_RANGE: 180, // Range between light and dark gray
@@ -63,10 +63,10 @@ export const UI_CONSTANTS = {
         PUMP_CONNECTIONS: "red",
       },
 
-      PUMPS: {
-        INLET: "rgba(200, 0, 0, 0.7)", // Red for inlet pumps
-        OUTLET: "rgba(0, 255, 0, 0.7)", // Green for outlet pumps
-        SELECTED_HIGHLIGHT: "rgba(255, 255, 0, 0.5)", // Yellow highlight for selected reservoir
+      PUMP: {
+        INLET: "color-mix(in srgb, #c80000 70%, transparent)", // Red for inlet pumps
+        OUTLET: "color-mix(in srgb, #00ff00 70%, transparent)", // Green for outlet pumps
+        SELECTED_HIGHLIGHT: "color-mix(in srgb, yellow 50%, transparent)", // Yellow highlight for selected reservoir
 
         // Solid colors for labels
         INLET_LABEL: "red",
@@ -80,21 +80,25 @@ export const UI_CONSTANTS = {
 
       DEBUG_OVERLAY: {
         PROCESSED: {
-          FILL: "rgba(100, 80, 255, 0.1)", // Purple for processed tiles
-          STROKE: "rgba(100, 80, 255, 0.6)",
+          FILL: "color-mix(in srgb, #6450ff 10%, transparent)", // Purple for processed tiles
+          STROKE: "color-mix(in srgb, #6450ff 60%, transparent)",
         },
         PENDING: {
-          FILL: "rgba(255, 105, 180, 0.1)", // Pastel pink for pending tiles
-          STROKE: "rgba(255, 105, 180, 0.6)", // Hot pink stroke
+          FILL: "color-mix(in srgb, #ff69b4 10%, transparent)", // Pastel pink for pending tiles
+          STROKE: "color-mix(in srgb, #ff69b4 60%, transparent)", // Hot pink stroke
         },
         ACTIVE: {
-          FILL: "rgba(0, 255, 0, 0.1)", // Bright green for active tile
-          STROKE: "rgba(0, 200, 0, 0.9)",
+          FILL: "color-mix(in srgb, #00ff00 10%, transparent)", // Bright green for active tile
+          STROKE: "color-mix(in srgb, #00c800 90%, transparent)",
           LINE_WIDTH_MULTIPLIER: 2, // Active tile has thicker border
         },
       },
 
       LABELS: {
+        LINE: "color-mix(in srgb, #646464 60%, transparent)", // Label connection lines
+        DOT: "color-mix(in srgb, #505050 70%, transparent)", // Label anchor dots
+        TEXT_LIGHT: "color-mix(in srgb, white 90%, transparent)", // Text on dark backgrounds
+        TEXT_DARK: "color-mix(in srgb, black 80%, transparent)", // Text on light backgrounds
         TEXT_LIGHT_BG: "black", // Text color on light backgrounds
         TEXT_DARK_BG: "white", // Text color on dark backgrounds
         STROKE_LIGHT_BG: "white", // Text stroke on light backgrounds
@@ -103,9 +107,9 @@ export const UI_CONSTANTS = {
       },
 
       UI: {
-        WATER_INFO: "#4a9eff", // Blue color for water volume display
-        PUMP_ACTIVE: "#00ff00", // Green for active pumps
-        PUMP_INACTIVE: "#ff6b6b", // Red for inactive pumps
+        WATER_INFO: "#4a9eff", // Blue color for water volume display (matches --blue-6)
+        PUMP_ACTIVE: "#00ff00", // Green for active pumps (bright green)
+        PUMP_INACTIVE: "#ff6b6b", // Red for inactive pumps (matches --red-6)
       },
     },
 
@@ -172,8 +176,8 @@ export const UI_CONSTANTS = {
   // Button styling
   BUTTONS: {
     REMOVE: {
-      BACKGROUND_COLOR: "#dc3545",
-      BACKGROUND_COLOR_HOVER: "#c82333",
+      BACKGROUND_COLOR: "#dc3545", // Matches --red-7
+      BACKGROUND_COLOR_HOVER: "#c82333", // Darker red
       TEXT_COLOR: "white",
       BORDER_RADIUS: "4px",
       PADDING: "2px 6px",

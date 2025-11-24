@@ -68,7 +68,7 @@ export class InteractiveLayerRenderer extends BaseLayerRenderer {
       ) {
         ctx.beginPath();
         ctx.arc(cx, cy, highlightRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.PUMPS.SELECTED_HIGHLIGHT;
+        ctx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.PUMP.SELECTED_HIGHLIGHT;
         ctx.lineWidth = scaledLineWidth + 1;
         ctx.stroke();
       }
@@ -76,8 +76,8 @@ export class InteractiveLayerRenderer extends BaseLayerRenderer {
       ctx.beginPath();
       ctx.arc(cx, cy, pumpRadius, 0, Math.PI * 2);
       ctx.strokeStyle = pump.mode === "inlet"
-        ? UI_CONSTANTS.RENDERING.COLORS.PUMPS.INLET
-        : UI_CONSTANTS.RENDERING.COLORS.PUMPS.OUTLET;
+        ? UI_CONSTANTS.RENDERING.COLORS.PUMP.INLET
+        : UI_CONSTANTS.RENDERING.COLORS.PUMP.OUTLET;
       ctx.lineWidth = scaledLineWidth;
       ctx.stroke();
     }
@@ -178,8 +178,8 @@ export class InteractiveLayerRenderer extends BaseLayerRenderer {
 
         ctx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.LABELS.STROKE_LIGHT_BG;
         ctx.fillStyle = pump.mode === "inlet"
-          ? UI_CONSTANTS.RENDERING.COLORS.PUMPS.INLET_LABEL
-          : UI_CONSTANTS.RENDERING.COLORS.PUMPS.OUTLET_LABEL;
+          ? UI_CONSTANTS.RENDERING.COLORS.PUMP.INLET_LABEL
+          : UI_CONSTANTS.RENDERING.COLORS.PUMP.OUTLET_LABEL;
 
         ctx.lineWidth = scaledLineWidth * strokeMultiplier;
         ctx.strokeText(pumpText, labelX, labelY);

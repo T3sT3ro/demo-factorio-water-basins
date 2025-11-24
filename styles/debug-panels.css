@@ -108,9 +108,9 @@
 
   /* Active node highlighting (for debug mode) - matches DEBUG_OVERLAY.ACTIVE color */
   .basin-item.active-node {
-    background: rgba(0, 255, 0, 0.08); /* Very subtle green background */
+    background: color-mix(in srgb, var(--green-6) 8%, transparent); /* Very subtle green background */
     border-inline-start: var(--border-size-2) solid
-      rgba(0, 200, 0, 0.6); /* Delicate green border */
+      color-mix(in srgb, var(--green-6) 60%, transparent); /* Delicate green border */
     padding: var(--size-1);
     margin: var(--size-1) 0;
     border-radius: var(--radius-2);
@@ -127,9 +127,9 @@
 
   /* Highlighted basin (from pump cursor click) */
   .basin-item.basin-highlighted {
-    background: rgba(255, 165, 0, 0.12); /* Subtle orange background */
+    background: color-mix(in srgb, var(--orange-6) 12%, transparent); /* Subtle orange background */
     border-inline-start: var(--border-size-2) solid
-      rgba(255, 140, 0, 0.8); /* Orange border */
+      color-mix(in srgb, var(--orange-6) 80%, transparent); /* Orange border */
     border-radius: var(--radius-2);
 
     & .basin-id {

@@ -1,6 +1,7 @@
 // Simple deterministic label positioning system for basin labels only
 
 import { CONFIG } from "./config.ts";
+import { UI_CONSTANTS } from "./constants.ts";
 import { calculateCentroid, euclideanDistance, keyToCoord } from "./TileUtils.ts";
 import type { Pump } from "./pumps.ts";
 import type { BasinData } from "./basins/index.ts";
@@ -235,7 +236,7 @@ export class BasinLabelManager {
     const lineWidth = zoom < 0.5 ? 2 : 1;
     const dotRadius = zoom < 0.5 ? 3 : 2;
 
-    ctx.strokeStyle = "rgba(100, 100, 100, 0.6)";
+    ctx.strokeStyle = UI_CONSTANTS.RENDERING.COLORS.LABELS.LINE;
     ctx.lineWidth = lineWidth;
     ctx.setLineDash([]);
 
@@ -247,7 +248,7 @@ export class BasinLabelManager {
     });
 
     // Draw anchor dots
-    ctx.fillStyle = "rgba(80, 80, 80, 0.7)";
+    ctx.fillStyle = UI_CONSTANTS.RENDERING.COLORS.LABELS.DOT;
     this.basinLabels.forEach((label) => {
       ctx.beginPath();
       ctx.arc(label.anchorX, label.anchorY, dotRadius, 0, 2 * Math.PI);
@@ -264,13 +265,13 @@ export class BasinLabelManager {
       // Choose semi-transparent text color based on background
       let textColor: string;
       if (centerHeight === 0) {
-        textColor = "rgba(255, 255, 255, 0.9)";
+        textColor = UI_CONSTANTS.RENDERING.COLORS.LABELS.TEXT_LIGHT;
       } else {
         const grayValue = Math.floor(220 - (centerHeight! / CONFIG.MAX_DEPTH) * 180);
         if (grayValue > 130) {
-          textColor = "rgba(0, 0, 0, 0.8)";
+          textColor = UI_CONSTANTS.RENDERING.COLORS.LABELS.TEXT_DARK;
         } else {
-          textColor = "rgba(255, 255, 255, 0.9)";
+          textColor = UI_CONSTANTS.RENDERING.COLORS.LABELS.TEXT_LIGHT;
         }
       }
 
