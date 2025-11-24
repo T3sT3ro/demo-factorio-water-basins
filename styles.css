@@ -1,6 +1,7 @@
 /* Modular CSS with layers - Main entry point */
 
 /* Import layer-organized stylesheets */
+@import url("styles/theme.css");
 @import url("styles/base.css");
 @import url("styles/layout.css");
 @import url("styles/components.css");

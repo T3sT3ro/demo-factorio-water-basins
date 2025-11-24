@@ -51,12 +51,12 @@
     transition: all var(--animation-speed-normal) ease;
 
     &:hover {
-      background-color: rgb(from var(--brand) r g b / 0.1);
+      background-color: var(--legend-hover-bg);
     }
 
     &.legend-item-selected {
-      background-color: rgb(from var(--brand) r g b / 0.2);
-      border-block-end: var(--border-size-3) solid var(--brand);
+      background-color: var(--legend-selected-bg);
+      border-block-end: var(--legend-selected-border-width) solid var(--legend-selected-border-color);
       font-weight: bold;
     }
   }
@@ -126,11 +126,11 @@
 
   /* Help button */
   .help-button {
-    background: var(--brand);
-    color: var(--gray-0);
+    background: var(--help-button-bg);
+    color: var(--help-button-text);
     border: none;
     border-radius: var(--radius-2);
-    block-size: var(--size-7);
+    block-size: var(--help-button-size);
     font-size: var(--font-size-2);
     font-weight: bold;
     cursor: pointer;

@@ -1,0 +1,144 @@
+/* Theme layer: Design tokens, colors, and component-specific sizing */
+@layer theme {
+  :root {
+    /* ===== Spacing & Sizing Tokens ===== */
+    
+    /* Component-specific sizing constraints */
+    --max-height-octave: var(--size-12);
+    --max-height-debug: var(--size-13);
+    --min-width-value: var(--size-10);
+    --min-width-octave-value: var(--size-9);
+    --min-width-canvas-container: var(--size-12);
+
+    /* Common spacing patterns */
+    --control-gap: var(--size-1);
+    --control-padding: var(--size-2);
+    --modal-max-width: var(--size-content-3);
+
+    /* Button and input sizing */
+    --button-padding-block: var(--size-1);
+    --button-padding-inline: var(--size-2);
+    --input-padding: var(--size-2);
+    --remove-button-padding-inline: var(--size-1);
+    --help-button-size: var(--size-7);
+
+    /* Basin tree indentation */
+    --basin-tree-indent: var(--size-5);
+
+    /* ===== Color Tokens ===== */
+
+    /* Brand colors */
+    --brand-light: var(--orange-6);
+    --brand-dark: var(--orange-6);
+
+    /* Text colors - Light theme */
+    --text-1-light: var(--gray-8);
+    --text-2-light: var(--gray-7);
+    --text-3-light: var(--gray-6);
+
+    /* Text colors - Dark theme */
+    --text-1-dark: var(--gray-0);
+    --text-2-dark: var(--gray-1);
+    --text-3-dark: var(--gray-2);
+
+    /* Surface colors - Light theme */
+    --surface-1-light: var(--gray-0);
+    --surface-2-light: var(--gray-1);
+    --surface-3-light: var(--gray-2);
+    --surface-4-light: var(--gray-3);
+
+    /* Surface colors - Dark theme */
+    --surface-1-dark: var(--gray-9);
+    --surface-2-dark: var(--gray-10);
+    --surface-3-dark: var(--gray-11);
+    --surface-4-dark: var(--gray-12);
+
+    /* Border colors - Light theme */
+    --border-color-1-light: var(--gray-5);
+    --border-color-2-light: var(--gray-6);
+
+    /* Border colors - Dark theme */
+    --border-color-1-dark: var(--gray-8);
+    --border-color-2-dark: var(--gray-7);
+
+    /* ===== Semantic Color Application ===== */
+    color-scheme: light dark;
+
+    --brand: light-dark(var(--brand-light), var(--brand-dark));
+    --text-1: light-dark(var(--text-1-light), var(--text-1-dark));
+    --text-2: light-dark(var(--text-2-light), var(--text-2-dark));
+    --text-3: light-dark(var(--text-3-light), var(--text-3-dark));
+    --surface-1: light-dark(var(--surface-1-light), var(--surface-1-dark));
+    --surface-2: light-dark(var(--surface-2-light), var(--surface-2-dark));
+    --surface-3: light-dark(var(--surface-3-light), var(--surface-3-dark));
+    --surface-4: light-dark(var(--surface-4-light), var(--surface-4-dark));
+    --border-color-1: light-dark(var(--border-color-1-light), var(--border-color-1-dark));
+    --border-color-2: light-dark(var(--border-color-2-light), var(--border-color-2-dark));
+
+    accent-color: var(--brand);
+
+    /* ===== Component-specific Colors ===== */
+
+    /* Legend selection */
+    --legend-selected-bg: rgb(from var(--brand) r g b / 0.2);
+    --legend-hover-bg: rgb(from var(--brand) r g b / 0.1);
+    --legend-selected-border-color: var(--brand);
+    --legend-selected-border-width: var(--border-size-3);
+
+    /* Active/highlighted states */
+    --basin-active-bg: color-mix(in srgb, var(--green-6) 8%, transparent);
+    --basin-active-border: color-mix(in srgb, var(--green-6) 60%, transparent);
+    --basin-active-text: var(--green-9);
+
+    --basin-highlighted-bg: color-mix(in srgb, var(--orange-6) 12%, transparent);
+    --basin-highlighted-border: color-mix(in srgb, var(--orange-6) 80%, transparent);
+    --basin-highlighted-text: var(--orange-9);
+
+    /* Pump colors */
+    --pump-active-color: var(--blue-7);
+    --pump-inactive-color: var(--gray-5);
+    --pump-inlet-color: var(--red-7);
+    --pump-outlet-color: var(--green-7);
+
+    /* Basin stack */
+    --basin-stack-border: var(--gray-5);
+    --basin-stack-hover-bg: var(--surface-2);
+    --basin-stack-hover-border: var(--link);
+    --basin-stack-hover-text: var(--link);
+    --basin-stack-active-bg: var(--blue-2);
+    --basin-stack-active-border: var(--blue-6);
+    --basin-stack-active-text: var(--blue-8);
+
+    /* Buttons */
+    --remove-button-bg: var(--red-6);
+    --remove-button-bg-hover: var(--red-7);
+    --remove-button-bg-active: var(--red-8);
+    --remove-button-text: var(--gray-0);
+
+    --help-button-bg: var(--brand);
+    --help-button-text: var(--gray-0);
+
+    --button-hover-border: var(--border-color-2);
+
+    --delete-button-bg: var(--red-2);
+    --delete-button-text: var(--red-9);
+    --delete-button-border: var(--red-4);
+    --delete-button-bg-hover: var(--red-3);
+    --delete-button-border-hover: var(--red-5);
+
+    /* Modal */
+    --modal-backdrop-bg: rgb(0 0 0 / var(--modal-backdrop-opacity));
+    --modal-backdrop-opacity: 0.5;
+
+    /* Code blocks */
+    --code-bg: var(--border-color-1);
+
+    /* Total size display */
+    --total-size-color: var(--blue-7);
+
+    /* ===== Animation & Transition ===== */
+    --transition-standard: all var(--animation-speed-normal) ease;
+    --transition-fast: all 0.15s ease;
+    --hover-brightness: 1.5;
+  }
+}
