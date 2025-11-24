@@ -102,22 +102,21 @@
 
   .basin-children {
     list-style: none;
-    padding-inline-start: var(--size-5);
+    padding-inline-start: var(--basin-tree-indent);
     margin: 0;
   }
 
   /* Active node highlighting (for debug mode) - matches DEBUG_OVERLAY.ACTIVE color */
   .basin-item.active-node {
-    background: color-mix(in srgb, var(--green-6) 8%, transparent); /* Very subtle green background */
-    border-inline-start: var(--border-size-2) solid
-      color-mix(in srgb, var(--green-6) 60%, transparent); /* Delicate green border */
+    background: var(--basin-active-bg);
+    border-inline-start: var(--border-size-2) solid var(--basin-active-border);
     padding: var(--size-1);
     margin: var(--size-1) 0;
     border-radius: var(--radius-2);
 
     & .basin-id {
       font-weight: var(--font-weight-7);
-      color: var(--green-9); /* Slightly stronger color for text */
+      color: var(--basin-active-text);
     }
 
     & summary {
@@ -127,14 +126,13 @@
 
   /* Highlighted basin (from pump cursor click) */
   .basin-item.basin-highlighted {
-    background: color-mix(in srgb, var(--orange-6) 12%, transparent); /* Subtle orange background */
-    border-inline-start: var(--border-size-2) solid
-      color-mix(in srgb, var(--orange-6) 80%, transparent); /* Orange border */
+    background: var(--basin-highlighted-bg);
+    border-inline-start: var(--border-size-2) solid var(--basin-highlighted-border);
     border-radius: var(--radius-2);
 
     & .basin-id {
       font-weight: var(--font-weight-7);
-      color: var(--orange-9);
+      color: var(--basin-highlighted-text);
     }
 
     & summary {
@@ -208,11 +206,11 @@
     line-height: 1;
 
     &[data-active="true"] {
-      color: var(--blue-7);
+      color: var(--pump-active-color);
     }
 
     &[data-active="false"] {
-      color: var(--gray-5);
+      color: var(--pump-inactive-color);
     }
   }
 
@@ -236,11 +234,11 @@
     font-weight: var(--font-weight-7);
 
     &.inlet-badge {
-      color: var(--red-7);
+      color: var(--pump-inlet-color);
     }
 
     &.outlet-badge {
-      color: var(--green-7);
+      color: var(--pump-outlet-color);
     }
   }
 
@@ -264,24 +262,24 @@
 
   .basin-stack-item {
     padding: var(--size-1) var(--size-1);
-    border: var(--border-size-1) solid var(--gray-5);
+    border: var(--border-size-1) solid var(--basin-stack-border);
     border-radius: var(--radius-1);
     color: var(--text-2);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: var(--transition-fast);
     white-space: nowrap;
     font-size: var(--font-size-0);
 
     &:hover {
-      background: var(--surface-2);
-      border-color: var(--link);
-      color: var(--link);
+      background: var(--basin-stack-hover-bg);
+      border-color: var(--basin-stack-hover-border);
+      color: var(--basin-stack-hover-text);
     }
 
     &.active {
-      background: var(--blue-2);
-      border-color: var(--blue-6);
-      color: var(--blue-8);
+      background: var(--basin-stack-active-bg);
+      border-color: var(--basin-stack-active-border);
+      color: var(--basin-stack-active-text);
       font-weight: var(--font-weight-6);
     }
   }
@@ -342,12 +340,12 @@
 
   /* Remove button styling */
   .remove-btn {
-    padding: 2px var(--size-1);
+    padding: 2px var(--remove-button-padding-inline);
     font-size: var(--font-size-0);
     line-height: var(--font-lineheight-1);
     font-weight: var(--font-weight-8);
-    background: var(--red-6);
-    color: var(--gray-0);
+    background: var(--remove-button-bg);
+    color: var(--remove-button-text);
     border: none;
     border-radius: var(--radius-1);
     cursor: pointer;
@@ -360,11 +358,11 @@
     }
 
     &:hover {
-      background: var(--red-7);
+      background: var(--remove-button-bg-hover);
     }
 
     &:active {
-      background: var(--red-8);
+      background: var(--remove-button-bg-active);
     }
   }
 }

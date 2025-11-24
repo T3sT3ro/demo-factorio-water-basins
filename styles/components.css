@@ -53,7 +53,7 @@
   /* Button and select defaults */
   button,
   select {
-    padding: var(--size-1) var(--size-2);
+    padding: var(--button-padding-block) var(--button-padding-inline);
     cursor: pointer;
   }
 }

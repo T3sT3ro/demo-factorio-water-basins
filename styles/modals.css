@@ -13,7 +13,7 @@
     padding: 0;
 
     &::backdrop {
-      background: rgb(0 0 0 / var(--modal-backdrop-opacity));
+      background: var(--modal-backdrop-bg);
     }
   }
 
@@ -70,7 +70,7 @@
     text-align: end;
 
     & button {
-      padding: var(--size-2) var(--size-3);
+      padding: var(--button-padding-block) var(--size-3);
       border: var(--border-size-1) solid var(--border-color-1);
       border-radius: var(--radius-1);
       background: var(--surface-1);
@@ -81,7 +81,7 @@
 
       &:hover {
         background: var(--surface-3);
-        border-color: var(--gray-6);
+        border-color: var(--button-hover-border);
       }
     }
   }
@@ -156,7 +156,7 @@
 
     & span {
       font-family: var(--font-mono);
-      color: var(--blue-7);
+      color: var(--total-size-color);
     }
   }
 
@@ -199,7 +199,7 @@
     gap: var(--size-1);
 
     & button {
-      padding: var(--size-2) var(--size-3);
+      padding: var(--button-padding-block) var(--size-3);
       border: var(--border-size-1) solid var(--border-color-1);
       border-radius: var(--radius-1);
       background: var(--surface-1);
@@ -210,17 +210,17 @@
 
       &:hover {
         background: var(--surface-3);
-        border-color: var(--gray-6);
+        border-color: var(--button-hover-border);
       }
 
       &.delete-btn {
-        background: var(--red-2);
-        color: var(--red-9);
-        border-color: var(--red-4);
+        background: var(--delete-button-bg);
+        color: var(--delete-button-text);
+        border-color: var(--delete-button-border);
 
         &:hover {
-          background: var(--red-3);
-          border-color: var(--red-5);
+          background: var(--delete-button-bg-hover);
+          border-color: var(--delete-button-border-hover);
         }
       }
     }
@@ -266,7 +266,7 @@
   #saveNameInput,
   #jsonTextInput,
   #exportJsonOutput {
-    padding: var(--size-2);
+    padding: var(--input-padding);
     border: var(--border-size-1) solid var(--border-color-1);
     border-radius: var(--radius-1);
     background: var(--surface-1);
@@ -310,7 +310,7 @@
       margin-inline-end: 0;
 
       & code {
-        background: var(--border-color-1);
+        background: var(--code-bg);
         padding: var(--size-1) var(--size-3);
         border-radius: var(--radius-2);
         font-family:
