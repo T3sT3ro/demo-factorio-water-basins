@@ -164,7 +164,7 @@ export class BasinManager {
 
     this.basins.forEach((basin) => {
       const capacityPerLevel = basin.capacity / basin.height; // Use total capacity
-      basin.level = Math.floor(basin.volume / capacityPerLevel);
+      basin.level = basin.volume / capacityPerLevel; // Fractional level for smooth interpolation
       if (basin.level < 0) basin.level = 0;
       if (basin.level > CONFIG.MAX_DEPTH) basin.level = CONFIG.MAX_DEPTH;
     });
