@@ -23,8 +23,8 @@ A canvas-based water basin simulation inspired by Factorio, featuring hierarchic
 # Start development server
 deno task dev
 
-# Start server with debugging enabled  
-deno task debug
+# Start server with debugging enabled and launch browser
+deno task preview
 
 # Format code
 deno task fmt
@@ -37,17 +37,6 @@ deno task check
 ```
 
 The development server runs on http://localhost:8000
-
-### Available Tasks
-
-| Task    | Command           | Description                                 |
-| ------- | ----------------- | ------------------------------------------- |
-| `dev`   | `deno task dev`   | Start development server                    |
-| `debug` | `deno task debug` | Start server with Chrome DevTools debugging |
-| `serve` | `deno task serve` | Production server                           |
-| `fmt`   | `deno task fmt`   | Format code with Deno formatter             |
-| `lint`  | `deno task lint`  | Lint code with Deno linter                  |
-| `check` | `deno task check` | Type check JavaScript files                 |
 
 ### Debugging
 
@@ -70,14 +59,8 @@ deno task debug
 
 ## TODO:
 
-- [ ] optimize brush tools to render tile only once when it's added to the set; do not clear on every frame
-- [ ] Implement an O(n^2) basin flood filling algorithm
-- [ ] Use `<template>` for UI components instead of innerHTML
-- [ ] Add debug visualization for basin calculation algorithm. Use generators to return up-to-date state
-
-Got it 👍 — here’s the revised version of the **GitHub Copilot CLI–optimized prompt**, reflecting that **a single Markdown document should be progressively built** as each file is analyzed (not one per file).
-It’s formatted for direct use with:
-
-```bash
-gh copilot explain --task "..."
-```
+- [ ] performant downflow of water between basins
+- [ ] reduce data duplication by keeping cursor stack per basin instead of per pump and split the logic into 2 stages:
+   1. Accumulate all pump delta for basins in first half
+   2. Apply accumulated delta to basins in second half according to basin tree cursors
+- [ ] think how to make water spilling realistic (proximity based?)

@@ -3,11 +3,9 @@
     "dev": "deno run -A npm:vite --no-open",
     "build": "deno run -A npm:vite build",
     "preview": "deno run -A npm:vite preview",
-    "serve": "deno run build && deno run server:start",
     "fmt": "deno fmt",
     "lint": "deno lint",
-    "check": "deno check **/*.ts",
-    "type-check": "deno check --no-emit **/*.ts"
+    "check": "deno check **/*.ts"
   },
   "imports": {
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5",
