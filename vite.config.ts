@@ -1,7 +1,9 @@
 import { defineConfig } from "npm:vite@^5.0.0";
+import deno from "@deno/vite-plugin"
 
 export default defineConfig({
   root: ".",
+  base: "/demo-factorio-water-basins",
   server: {
     port: 8000,
     host: true,
@@ -24,4 +26,7 @@ export default defineConfig({
   resolve: {
     extensions: [".ts", ".js", ".json"],
   },
+  plugins: [
+    deno(),
+  ]
 });

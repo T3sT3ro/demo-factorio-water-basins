@@ -8,7 +8,7 @@
     "check": "deno check **/*.ts"
   },
   "imports": {
-    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5",
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.6",
     "@std/http": "jsr:@std/http@^1.0.0",
     "tinyqueue": "npm:tinyqueue@3.0.0"
   },
