@@ -1,4 +1,5 @@
 // Main application controller - orchestrates all modules
+import "./styles.css";
 
 import { CONFIG, setupCanvas } from "./modules/config.ts";
 import { GameState } from "./modules/GameState.ts";

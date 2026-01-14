@@ -1,11 +1,11 @@
 /* Modular CSS with layers - Main entry point */
 
 /* Import layer-organized stylesheets */
-@import url("styles/theme.css");
-@import url("styles/base.css");
-@import url("styles/layout.css");
-@import url("styles/components.css");
-@import url("styles/noise-controls.css");
-@import url("styles/controls.css");
-@import url("styles/debug-panels.css");
-@import url("styles/modals.css");
+@import "styles/theme.css";
+@import "styles/base.css";
+@import "styles/layout.css";
+@import "styles/components.css";
+@import "styles/noise-controls.css";
+@import "styles/controls.css";
+@import "styles/debug-panels.css";
+@import "styles/modals.css";
